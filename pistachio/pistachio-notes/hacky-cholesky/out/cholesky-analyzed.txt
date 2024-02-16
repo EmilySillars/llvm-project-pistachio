@@ -1,0 +1,373 @@
+Function main:
+
+  store i32 0, ptr %3, align 4 DOES NOT ALIAS WITH ANY LOADS
+
+  store i32 %0, ptr %4, align 4, !tbaa !5 ALIASES WITH...
+	  %26 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+
+  store ptr %1, ptr %5, align 8, !tbaa !9 ALIASES WITH...
+	  %29 = load ptr, ptr %5, align 8, !tbaa !9 ( MustAlias )
+
+  store i32 1024, ptr %6, align 4, !tbaa !5 ALIASES WITH...
+	  %35 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %16 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %21 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+
+  store ptr %12, ptr %7, align 8, !tbaa !9 ALIASES WITH...
+	  %36 = load ptr, ptr %7, align 8, !tbaa !9 ( MustAlias )
+	  %39 = load ptr, ptr %7, align 8, !tbaa !9 ( MustAlias )
+	  %19 = load ptr, ptr %7, align 8, !tbaa !9 ( MustAlias )
+	  %24 = load ptr, ptr %7, align 8, !tbaa !9 ( MustAlias )
+
+  store ptr %15, ptr %8, align 8, !tbaa !9 ALIASES WITH...
+	  %41 = load ptr, ptr %8, align 8, !tbaa !9 ( MustAlias )
+	  %17 = load ptr, ptr %8, align 8, !tbaa !9 ( MustAlias )
+	  %22 = load ptr, ptr %8, align 8, !tbaa !9 ( MustAlias )
+
+Total Alias Queries: 78.00
+MustAlias: 15.38% May Alias: 0.00% Partial Alias: 0.00% NoAlias: 84.62%
+
+Alias Set Tracker: 7 alias sets for 13 pointer values.
+  AliasSet[0x560a17f76d40, 1] must alias, Mod       Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x560a17f76de0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x560a17f76e80, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x560a17f76f20, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %45, LocationSize::precise(4))
+  AliasSet[0x560a17f77010, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(8)), (ptr %7, LocationSize::precise(8)), (ptr %44, LocationSize::precise(8))
+  AliasSet[0x560a17f77390, 2] may alias, Mod/Ref   Pointers: (ptr %30, LocationSize::precise(8))
+    8 Unknown instructions:   %11 = call ptr @polybench_alloc_data(i64 noundef 1048576, i32 noundef 8),   %14 = call ptr @polybench_alloc_data(i64 noundef 1024, i32 noundef 8),   call void @init_array(i32 noundef %16, ptr noundef %18, ptr noundef %20),   call void @kernel_cholesky(i32 noundef %21, ptr noundef %23, ptr noundef %25),   %32 = call i32 @strcmp(ptr noundef %31, ptr noundef @.str) #7,   call void @print_array(i32 noundef %35, ptr noundef %37),   call void @free(ptr noundef %40) #6,   call void @free(ptr noundef %42) #6
+  AliasSet[0x560a17f77560, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(8)), (ptr %8, LocationSize::precise(8)), (ptr %43, LocationSize::precise(8))
+
+
+Function init_array:
+
+  store i32 %0, ptr %4, align 4, !tbaa !5 ALIASES WITH...
+	  %13 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+	  %16 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+	  %25 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+	  %28 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+
+  store ptr %1, ptr %5, align 8, !tbaa !9 ALIASES WITH...
+	  %19 = load ptr, ptr %5, align 8, !tbaa !9 ( MustAlias )
+
+  store ptr %2, ptr %6, align 8, !tbaa !9 ALIASES WITH...
+	  %31 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+
+  store i32 0, ptr %7, align 4, !tbaa !5 ALIASES WITH...
+	  %12 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %20 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %32 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %43 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+
+  store double %18, ptr %22, align 8, !tbaa !11 DOES NOT ALIAS WITH ANY LOADS
+
+  store i32 0, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %24 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %35 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store double %30, ptr %37, align 8, !tbaa !11 DOES NOT ALIAS WITH ANY LOADS
+
+  store i32 %40, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %24 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %35 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %44, ptr %7, align 4, !tbaa !5 ALIASES WITH...
+	  %12 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %20 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %32 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %43 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+
+Total Alias Queries: 117.00
+MustAlias: 17.09% May Alias: 0.00% Partial Alias: 0.00% NoAlias: 82.91%
+
+Alias Set Tracker: 6 alias sets for 11 pointer values.
+  AliasSet[0x560a17f76f70, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x560a17f7d860, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x560a17f50c70, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x560a17f76de0, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x560a17f76940, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %46, LocationSize::precise(4))
+  AliasSet[0x560a17f76a30, 2] may alias, Mod       Pointers: (ptr %22, LocationSize::precise(8)), (ptr %37, LocationSize::precise(8))
+
+
+Function kernel_cholesky:
+
+  store double %52, ptr %10, align 8, !tbaa !11 ALIASES WITH...
+	  %57 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %34 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %85 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %108 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+
+  store i32 %55, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %47 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %54 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %116 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %123 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %87 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %67 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %75 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store double %114, ptr %121, align 8, !tbaa !11 ALIASES WITH...
+	  %50 = load double, ptr %49, align 8, !tbaa !11 ( MayAlias )
+	  %27 = load double, ptr %26, align 8, !tbaa !11 ( MayAlias )
+	  %42 = load double, ptr %41, align 8, !tbaa !11 ( MayAlias )
+	  %78 = load double, ptr %77, align 8, !tbaa !11 ( MayAlias )
+	  %93 = load double, ptr %92, align 8, !tbaa !11 ( MayAlias )
+	  %101 = load double, ptr %100, align 8, !tbaa !11 ( MayAlias )
+	  %113 = load double, ptr %112, align 8, !tbaa !11 ( MayAlias )
+
+  store i32 %124, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %47 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %54 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %116 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %123 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %87 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %67 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %75 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %0, ptr %4, align 4, !tbaa !5 ALIASES WITH...
+	  %17 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+	  %68 = load i32, ptr %4, align 4, !tbaa !5 ( MustAlias )
+
+  store ptr %1, ptr %5, align 8, !tbaa !9 ALIASES WITH...
+	  %60 = load ptr, ptr %5, align 8, !tbaa !9 ( MustAlias )
+	  %109 = load ptr, ptr %5, align 8, !tbaa !9 ( MustAlias )
+
+  store ptr %2, ptr %6, align 8, !tbaa !9 ALIASES WITH...
+	  %115 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %20 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %35 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %43 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %86 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %71 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+	  %94 = load ptr, ptr %6, align 8, !tbaa !9 ( MustAlias )
+
+  store i32 0, ptr %7, align 4, !tbaa !5 ALIASES WITH...
+	  %119 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %16 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %21 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %24 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %30 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %36 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %44 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %81 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %61 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %64 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %72 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %95 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %110 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %127 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+
+  store double %27, ptr %10, align 8, !tbaa !11 ALIASES WITH...
+	  %57 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %34 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %85 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %108 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+
+  store i32 0, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %47 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %54 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %116 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %123 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %87 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %67 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %75 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store double %78, ptr %10, align 8, !tbaa !11 ALIASES WITH...
+	  %57 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %34 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %85 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %108 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+
+  store i32 0, ptr %9, align 4, !tbaa !5 ALIASES WITH...
+	  %80 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %90 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %98 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %105 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+
+  store double %59, ptr %63, align 8, !tbaa !11 ALIASES WITH...
+	  %50 = load double, ptr %49, align 8, !tbaa !11 ( MayAlias )
+	  %27 = load double, ptr %26, align 8, !tbaa !11 ( MayAlias )
+	  %42 = load double, ptr %41, align 8, !tbaa !11 ( MayAlias )
+	  %78 = load double, ptr %77, align 8, !tbaa !11 ( MayAlias )
+	  %93 = load double, ptr %92, align 8, !tbaa !11 ( MayAlias )
+	  %101 = load double, ptr %100, align 8, !tbaa !11 ( MayAlias )
+	  %113 = load double, ptr %112, align 8, !tbaa !11 ( MayAlias )
+
+  store i32 %65, ptr %8, align 4, !tbaa !5 ALIASES WITH...
+	  %47 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %54 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %116 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %123 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %39 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %87 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %67 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %75 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+
+  store double %103, ptr %10, align 8, !tbaa !11 ALIASES WITH...
+	  %57 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %34 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %85 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+	  %108 = load double, ptr %10, align 8, !tbaa !11 ( MustAlias )
+
+  store i32 %106, ptr %9, align 4, !tbaa !5 ALIASES WITH...
+	  %80 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %90 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %98 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+	  %105 = load i32, ptr %9, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %128, ptr %7, align 4, !tbaa !5 ALIASES WITH...
+	  %119 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %16 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %21 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %24 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %30 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %36 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %44 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %81 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %61 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %64 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %72 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %95 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %110 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+	  %127 = load i32, ptr %7, align 4, !tbaa !5 ( MustAlias )
+
+Total Alias Queries: 833.00
+MustAlias: 11.88% May Alias: 1.68% Partial Alias: 0.00% NoAlias: 86.43%
+
+Alias Set Tracker: 8 alias sets for 24 pointer values.
+  AliasSet[0x560a17f76e30, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x560a17f77730, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x560a17f776e0, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x560a17f7d860, 3] must alias, Mod/Ref   Pointers: (ptr %11, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %133, LocationSize::precise(4))
+  AliasSet[0x560a17f76de0, 3] must alias, Mod/Ref   Pointers: (ptr %12, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %132, LocationSize::precise(4))
+  AliasSet[0x560a17f7fd40, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(4)), (ptr %9, LocationSize::precise(4)), (ptr %131, LocationSize::precise(4))
+  AliasSet[0x560a17f7fde0, 3] must alias, Mod/Ref   Pointers: (ptr %14, LocationSize::precise(8)), (ptr %10, LocationSize::precise(8)), (ptr %130, LocationSize::precise(8))
+  AliasSet[0x560a17f7fed0, 10] may alias, Mod/Ref   Pointers: (ptr %26, LocationSize::precise(8)), (ptr %41, LocationSize::precise(8)), (ptr %49, LocationSize::precise(8)), (ptr %63, LocationSize::precise(8)), (ptr %77, LocationSize::precise(8)), (ptr %92, LocationSize::precise(8)), (ptr %100, LocationSize::precise(8)), (ptr %112, LocationSize::precise(8)), (ptr %121, LocationSize::precise(8))
+    1 Unknown instructions:   %58 = call double @sqrt(double noundef %57) #6
+
+
+Function print_array:
+
+  store ptr %1, ptr %4, align 8, !tbaa !9 ALIASES WITH...
+	  %20 = load ptr, ptr %4, align 8, !tbaa !9 ( MustAlias )
+
+  store i32 0, ptr %5, align 4, !tbaa !5 ALIASES WITH...
+	  %10 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %21 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %44 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %0, ptr %3, align 4, !tbaa !5 ALIASES WITH...
+	  %11 = load i32, ptr %3, align 4, !tbaa !5 ( MustAlias )
+	  %16 = load i32, ptr %3, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 0, ptr %6, align 4, !tbaa !5 ALIASES WITH...
+	  %15 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %24 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %31 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %40 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %41, ptr %6, align 4, !tbaa !5 ALIASES WITH...
+	  %15 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %24 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %31 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+	  %40 = load i32, ptr %6, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %45, ptr %5, align 4, !tbaa !5 ALIASES WITH...
+	  %10 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %21 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %29 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+	  %44 = load i32, ptr %5, align 4, !tbaa !5 ( MustAlias )
+
+Total Alias Queries: 84.00
+MustAlias: 22.62% May Alias: 0.00% Partial Alias: 0.00% NoAlias: 77.38%
+
+Alias Set Tracker: 6 alias sets for 10 pointer values.
+  AliasSet[0x560a17f80d90, 1] must alias, Mod/Ref   Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x560a17f81fe0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(8))
+  AliasSet[0x560a17f81ed0, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(4)), (ptr %5, LocationSize::precise(4)), (ptr %48, LocationSize::precise(4))
+  AliasSet[0x560a17f76940, 3] must alias, Mod/Ref   Pointers: (ptr %8, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x560a17f83b10, 3] may alias, Mod/Ref   Pointers: (ptr @stderr, LocationSize::precise(8)), (ptr %26, LocationSize::precise(8))
+    2 Unknown instructions:   %28 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %19, ptr noundef @.str.1, double noundef %27),   %37 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %36, ptr noundef @.str.2)
+  AliasSet[0x560a17f83bb0, 1] must alias, Ref        forwarding to 0x560a17f83b10
+
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'main':
+Alias Set Tracker: 7 alias sets for 13 pointer values.
+  AliasSet[0x5595e4618d50, 1] must alias, Mod       Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x5595e4618df0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5595e4618e90, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5595e4618f30, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %45, LocationSize::precise(4))
+  AliasSet[0x5595e4619020, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(8)), (ptr %7, LocationSize::precise(8)), (ptr %44, LocationSize::precise(8))
+  AliasSet[0x5595e46193a0, 2] may alias, Mod/Ref   Pointers: (ptr %30, LocationSize::precise(8))
+    8 Unknown instructions:   %11 = call ptr @polybench_alloc_data(i64 noundef 1048576, i32 noundef 8),   %14 = call ptr @polybench_alloc_data(i64 noundef 1024, i32 noundef 8),   call void @init_array(i32 noundef %16, ptr noundef %18, ptr noundef %20),   call void @kernel_cholesky(i32 noundef %21, ptr noundef %23, ptr noundef %25),   %32 = call i32 @strcmp(ptr noundef %31, ptr noundef @.str) #7,   call void @print_array(i32 noundef %35, ptr noundef %37),   call void @free(ptr noundef %40) #6,   call void @free(ptr noundef %42) #6
+  AliasSet[0x5595e4619500, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(8)), (ptr %8, LocationSize::precise(8)), (ptr %43, LocationSize::precise(8))
+
+Alias sets for function 'init_array':
+Alias Set Tracker: 6 alias sets for 11 pointer values.
+  AliasSet[0x5595e46194b0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5595e461f6d0, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5595e461f770, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x5595e4619020, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x5595e4618d50, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %46, LocationSize::precise(4))
+  AliasSet[0x5595e4618e40, 2] may alias, Mod       Pointers: (ptr %22, LocationSize::precise(8)), (ptr %37, LocationSize::precise(8))
+
+Alias sets for function 'kernel_cholesky':
+Alias Set Tracker: 8 alias sets for 24 pointer values.
+  AliasSet[0x5595e46215a0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5595e4618e90, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5595e46223f0, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x5595e4622490, 3] must alias, Mod/Ref   Pointers: (ptr %11, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %133, LocationSize::precise(4))
+  AliasSet[0x5595e4622530, 3] must alias, Mod/Ref   Pointers: (ptr %12, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %132, LocationSize::precise(4))
+  AliasSet[0x5595e46225d0, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(4)), (ptr %9, LocationSize::precise(4)), (ptr %131, LocationSize::precise(4))
+  AliasSet[0x5595e4622670, 3] must alias, Mod/Ref   Pointers: (ptr %14, LocationSize::precise(8)), (ptr %10, LocationSize::precise(8)), (ptr %130, LocationSize::precise(8))
+  AliasSet[0x5595e4622760, 10] may alias, Mod/Ref   Pointers: (ptr %26, LocationSize::precise(8)), (ptr %41, LocationSize::precise(8)), (ptr %49, LocationSize::precise(8)), (ptr %63, LocationSize::precise(8)), (ptr %77, LocationSize::precise(8)), (ptr %92, LocationSize::precise(8)), (ptr %100, LocationSize::precise(8)), (ptr %112, LocationSize::precise(8)), (ptr %121, LocationSize::precise(8))
+    1 Unknown instructions:   %58 = call double @sqrt(double noundef %57) #6
+
+Alias sets for function 'print_array':
+Alias Set Tracker: 6 alias sets for 10 pointer values.
+  AliasSet[0x5595e4623490, 1] must alias, Mod/Ref   Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x5595e46235d0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(8))
+  AliasSet[0x5595e46193a0, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(4)), (ptr %5, LocationSize::precise(4)), (ptr %48, LocationSize::precise(4))
+  AliasSet[0x5595e45f2c50, 3] must alias, Mod/Ref   Pointers: (ptr %8, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x5595e4622320, 3] may alias, Mod/Ref   Pointers: (ptr @stderr, LocationSize::precise(8)), (ptr %26, LocationSize::precise(8))
+    2 Unknown instructions:   %28 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %19, ptr noundef @.str.1, double noundef %27),   %37 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %36, ptr noundef @.str.2)
+  AliasSet[0x5595e46223c0, 1] must alias, Ref        forwarding to 0x5595e4622320
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  177 Total Alias Queries Performed
+  139 no alias responses (78.5%)
+  38 may alias responses (21.4%)
+  0 partial alias responses (0.0%)
+  0 must alias responses (0.0%)
+  Alias Analysis Evaluator Pointer Alias Summary: 78%/21%/0%/0%
+  672 Total ModRef Queries Performed
+  549 no mod/ref responses (81.6%)
+  0 mod responses (0.0%)
+  8 ref responses (1.1%)
+  115 mod & ref responses (17.1%)
+  Alias Analysis Evaluator Mod/Ref Summary: 81%/0%/1%/17%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+

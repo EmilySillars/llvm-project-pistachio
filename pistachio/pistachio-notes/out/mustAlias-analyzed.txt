@@ -1,0 +1,65 @@
+Function foo:
+
+  store i32 4, ptr %1, align 4, !tbaa !5 ALIASES WITH...
+	  %5 = load i32, ptr %1, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %5, ptr %2, align 4, !tbaa !5 DOES NOT ALIAS WITH ANY LOADS
+
+Total Alias Queries: 2.00
+MustAlias: 50.00% May Alias: 0.00% Partial Alias: 0.00% NoAlias: 50.00%
+
+Alias Set Tracker: 2 alias sets for 6 pointer values.
+  AliasSet[0x55b75d33de80, 3] must alias, Mod/Ref   Pointers: (ptr %3, LocationSize::precise(4)), (ptr %1, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4))
+  AliasSet[0x55b75d33df70, 3] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4)), (ptr %2, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4))
+
+
+Function main:
+
+  store i32 0, ptr %1, align 4 DOES NOT ALIAS WITH ANY LOADS
+
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x55b75d33e010, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x55b75d33ded0, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'foo':
+Alias Set Tracker: 2 alias sets for 6 pointer values.
+  AliasSet[0x55a9d3e72e80, 3] must alias, Mod/Ref   Pointers: (ptr %3, LocationSize::precise(4)), (ptr %1, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4))
+  AliasSet[0x55a9d3e72f70, 3] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4)), (ptr %2, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4))
+
+Alias sets for function 'main':
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x55a9d3e73060, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x55a9d3e6d3b0, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  1 Total Alias Queries Performed
+  1 no alias responses (100.0%)
+  0 may alias responses (0.0%)
+  0 partial alias responses (0.0%)
+  0 must alias responses (0.0%)
+  Alias Analysis Evaluator Pointer Alias Summary: 100%/0%/0%/0%
+  21 Total ModRef Queries Performed
+  13 no mod/ref responses (61.9%)
+  0 mod responses (0.0%)
+  0 ref responses (0.0%)
+  8 mod & ref responses (38.0%)
+  Alias Analysis Evaluator Mod/Ref Summary: 61%/0%/0%/38%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+

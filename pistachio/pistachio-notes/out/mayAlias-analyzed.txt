@@ -1,0 +1,48 @@
+Function foo:
+
+Alias Set Tracker: 0 alias sets for 0 pointer values.
+
+
+Function main:
+
+  store i32 0, ptr %1, align 4 DOES NOT ALIAS WITH ANY LOADS
+
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x5638c77b3150, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x5638c77b34d0, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'foo':
+Alias Set Tracker: 0 alias sets for 0 pointer values.
+
+Alias sets for function 'main':
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x5646c2694150, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x5646c26944d0, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  Alias Analysis Evaluator Summary: No pointers!
+  1 Total ModRef Queries Performed
+  1 no mod/ref responses (100.0%)
+  0 mod responses (0.0%)
+  0 ref responses (0.0%)
+  0 mod & ref responses (0.0%)
+  Alias Analysis Evaluator Mod/Ref Summary: 100%/0%/0%/0%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+

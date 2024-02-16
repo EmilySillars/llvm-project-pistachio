@@ -1,0 +1,77 @@
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'main':
+Alias Set Tracker: 7 alias sets for 13 pointer values.
+  AliasSet[0x5559f4e37d70, 1] must alias, Mod       Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x5559f4e37e10, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5559f4e37eb0, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5559f4e37f50, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %45, LocationSize::precise(4))
+  AliasSet[0x5559f4e38040, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(8)), (ptr %7, LocationSize::precise(8)), (ptr %44, LocationSize::precise(8))
+  AliasSet[0x5559f4e383c0, 2] may alias, Mod/Ref   Pointers: (ptr %30, LocationSize::precise(8))
+    8 Unknown instructions:   %11 = call ptr @polybench_alloc_data(i64 noundef 1048576, i32 noundef 8),   %14 = call ptr @polybench_alloc_data(i64 noundef 1024, i32 noundef 8),   call void @init_array(i32 noundef %16, ptr noundef %18, ptr noundef %20),   call void @kernel_cholesky(i32 noundef %21, ptr noundef %23, ptr noundef %25),   %32 = call i32 @strcmp(ptr noundef %31, ptr noundef @.str) #7,   call void @print_array(i32 noundef %35, ptr noundef %37),   call void @free(ptr noundef %40) #6,   call void @free(ptr noundef %42) #6
+  AliasSet[0x5559f4e38520, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(8)), (ptr %8, LocationSize::precise(8)), (ptr %43, LocationSize::precise(8))
+
+Alias sets for function 'init_array':
+Alias Set Tracker: 6 alias sets for 11 pointer values.
+  AliasSet[0x5559f4e384d0, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5559f4e38570, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5559f4e38040, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x5559f4e37d10, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x5559f4e37db0, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %46, LocationSize::precise(4))
+  AliasSet[0x5559f4e37ea0, 2] may alias, Mod       Pointers: (ptr %22, LocationSize::precise(8)), (ptr %37, LocationSize::precise(8))
+
+Alias sets for function 'kernel_cholesky':
+Alias Set Tracker: 8 alias sets for 24 pointer values.
+  AliasSet[0x5559f4e37e00, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(4))
+  AliasSet[0x5559f4e383c0, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(8))
+  AliasSet[0x5559f4e41450, 1] must alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(8))
+  AliasSet[0x5559f4e414f0, 3] must alias, Mod/Ref   Pointers: (ptr %11, LocationSize::precise(4)), (ptr %7, LocationSize::precise(4)), (ptr %133, LocationSize::precise(4))
+  AliasSet[0x5559f4e41590, 3] must alias, Mod/Ref   Pointers: (ptr %12, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %132, LocationSize::precise(4))
+  AliasSet[0x5559f4e41630, 3] must alias, Mod/Ref   Pointers: (ptr %13, LocationSize::precise(4)), (ptr %9, LocationSize::precise(4)), (ptr %131, LocationSize::precise(4))
+  AliasSet[0x5559f4e416d0, 3] must alias, Mod/Ref   Pointers: (ptr %14, LocationSize::precise(8)), (ptr %10, LocationSize::precise(8)), (ptr %130, LocationSize::precise(8))
+  AliasSet[0x5559f4e417c0, 10] may alias, Mod/Ref   Pointers: (ptr %26, LocationSize::precise(8)), (ptr %41, LocationSize::precise(8)), (ptr %49, LocationSize::precise(8)), (ptr %63, LocationSize::precise(8)), (ptr %77, LocationSize::precise(8)), (ptr %92, LocationSize::precise(8)), (ptr %100, LocationSize::precise(8)), (ptr %112, LocationSize::precise(8)), (ptr %121, LocationSize::precise(8))
+    1 Unknown instructions:   %58 = call double @sqrt(double noundef %57) #6
+
+Alias sets for function 'print_array':
+Alias Set Tracker: 6 alias sets for 10 pointer values.
+  AliasSet[0x5559f4e42630, 1] must alias, Mod/Ref   Pointers: (ptr %3, LocationSize::precise(4))
+  AliasSet[0x5559f4e41860, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(8))
+  AliasSet[0x5559f4e416d0, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(4)), (ptr %5, LocationSize::precise(4)), (ptr %48, LocationSize::precise(4))
+  AliasSet[0x5559f4e418b0, 3] must alias, Mod/Ref   Pointers: (ptr %8, LocationSize::precise(4)), (ptr %6, LocationSize::precise(4)), (ptr %47, LocationSize::precise(4))
+  AliasSet[0x5559f4e41320, 3] may alias, Mod/Ref   Pointers: (ptr @stderr, LocationSize::precise(8)), (ptr %26, LocationSize::precise(8))
+    2 Unknown instructions:   %28 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %19, ptr noundef @.str.1, double noundef %27),   %37 = call i32 (ptr, ptr, ...) @fprintf(ptr noundef %36, ptr noundef @.str.2)
+  AliasSet[0x5559f4e413c0, 1] must alias, Ref        forwarding to 0x5559f4e41320
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  177 Total Alias Queries Performed
+  139 no alias responses (78.5%)
+  38 may alias responses (21.4%)
+  0 partial alias responses (0.0%)
+  0 must alias responses (0.0%)
+  Alias Analysis Evaluator Pointer Alias Summary: 78%/21%/0%/0%
+  672 Total ModRef Queries Performed
+  549 no mod/ref responses (81.6%)
+  0 mod responses (0.0%)
+  8 ref responses (1.1%)
+  115 mod & ref responses (17.1%)
+  Alias Analysis Evaluator Mod/Ref Summary: 81%/0%/1%/17%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+

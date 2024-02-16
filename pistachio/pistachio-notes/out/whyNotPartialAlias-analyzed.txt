@@ -1,0 +1,90 @@
+Function foo:
+
+  store i32 9, ptr %1, align 4, !tbaa !5 ALIASES WITH...
+	  %17 = load i8, ptr %16, align 1, !tbaa !13 ( MayAlias )
+	  %20 = load i8, ptr %19, align 1, !tbaa !13 ( MayAlias )
+
+  store ptr %8, ptr %2, align 8, !tbaa !9 ALIASES WITH...
+	  %13 = load ptr, ptr %2, align 8, !tbaa !9 ( MustAlias )
+	  %15 = load ptr, ptr %2, align 8, !tbaa !9 ( MustAlias )
+	  %18 = load ptr, ptr %2, align 8, !tbaa !9 ( MustAlias )
+
+  store ptr %10, ptr %3, align 8, !tbaa !9 ALIASES WITH...
+	  %11 = load ptr, ptr %3, align 8, !tbaa !9 ( MustAlias )
+
+  store i16 85, ptr %12, align 2, !tbaa !11 ALIASES WITH...
+	  %17 = load i8, ptr %16, align 1, !tbaa !13 ( MayAlias )
+	  %20 = load i8, ptr %19, align 1, !tbaa !13 ( MayAlias )
+
+  store i8 77, ptr %14, align 1, !tbaa !13 ALIASES WITH...
+	  %17 = load i8, ptr %16, align 1, !tbaa !13 ( MayAlias )
+	  %20 = load i8, ptr %19, align 1, !tbaa !13 ( MayAlias )
+
+  store i8 %17, ptr %4, align 1, !tbaa !13 DOES NOT ALIAS WITH ANY LOADS
+
+  store i8 %20, ptr %5, align 1, !tbaa !13 DOES NOT ALIAS WITH ANY LOADS
+
+Total Alias Queries: 42.00
+MustAlias: 9.52% May Alias: 14.29% Partial Alias: 0.00% NoAlias: 76.19%
+
+Alias Set Tracker: 5 alias sets for 15 pointer values.
+  AliasSet[0x55a506373c40, 7] may alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(4)), (ptr %1, LocationSize::precise(4)), (ptr %12, LocationSize::precise(2)), (ptr %14, LocationSize::precise(1)), (ptr %16, LocationSize::precise(1)), (ptr %19, LocationSize::precise(1)), (ptr %23, LocationSize::precise(4))
+  AliasSet[0x55a506373d30, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(8)), (ptr %2, LocationSize::precise(8)), (ptr %22, LocationSize::precise(8))
+  AliasSet[0x55a506373e20, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(8)), (ptr %3, LocationSize::precise(8)), (ptr %21, LocationSize::precise(8))
+  AliasSet[0x55a506374350, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(1))
+  AliasSet[0x55a5063744e0, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(1))
+
+
+Function main:
+
+  store i32 0, ptr %1, align 4 DOES NOT ALIAS WITH ANY LOADS
+
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x55a506374580, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x55a5063746e0, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'foo':
+Alias Set Tracker: 5 alias sets for 15 pointer values.
+  AliasSet[0x56200d73bc60, 7] may alias, Mod/Ref   Pointers: (ptr %6, LocationSize::precise(4)), (ptr %1, LocationSize::precise(4)), (ptr %12, LocationSize::precise(2)), (ptr %14, LocationSize::precise(1)), (ptr %16, LocationSize::precise(1)), (ptr %19, LocationSize::precise(1)), (ptr %23, LocationSize::precise(4))
+  AliasSet[0x56200d73bd50, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(8)), (ptr %2, LocationSize::precise(8)), (ptr %22, LocationSize::precise(8))
+  AliasSet[0x56200d73be40, 3] must alias, Mod/Ref   Pointers: (ptr %9, LocationSize::precise(8)), (ptr %3, LocationSize::precise(8)), (ptr %21, LocationSize::precise(8))
+  AliasSet[0x56200d73c300, 1] must alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(1))
+  AliasSet[0x56200d73c3f0, 1] must alias, Mod/Ref   Pointers: (ptr %5, LocationSize::precise(1))
+
+Alias sets for function 'main':
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x56200d73c440, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x56200d73c530, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  36 Total Alias Queries Performed
+  26 no alias responses (72.2%)
+  10 may alias responses (27.7%)
+  0 partial alias responses (0.0%)
+  0 must alias responses (0.0%)
+  Alias Analysis Evaluator Pointer Alias Summary: 72%/27%/0%/0%
+  181 Total ModRef Queries Performed
+  153 no mod/ref responses (84.5%)
+  0 mod responses (0.0%)
+  0 ref responses (0.0%)
+  28 mod & ref responses (15.4%)
+  Alias Analysis Evaluator Mod/Ref Summary: 84%/0%/0%/15%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+

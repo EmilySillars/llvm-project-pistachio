@@ -1,0 +1,74 @@
+Function foo:
+
+  store i32 444, ptr %6, align 4, !tbaa !5 ALIASES WITH...
+	  %9 = load i32, ptr %8, align 4, !tbaa !5 ( MustAlias )
+	  %12 = load i32, ptr %11, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %9, ptr %2, align 4, !tbaa !5 ALIASES WITH...
+	  %13 = load i32, ptr %2, align 4, !tbaa !5 ( MustAlias )
+
+  store i32 %12, ptr %3, align 4, !tbaa !5 ALIASES WITH...
+	  %14 = load i32, ptr %3, align 4, !tbaa !5 ( MustAlias )
+
+Total Alias Queries: 12.00
+MustAlias: 33.33% May Alias: 0.00% Partial Alias: 0.00% NoAlias: 66.67%
+
+Alias Set Tracker: 4 alias sets for 13 pointer values.
+  AliasSet[0x555ed300e150, 6] may alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(12)), (ptr %5, LocationSize::precise(12)), (ptr %6, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %11, LocationSize::precise(4)), (ptr %18, LocationSize::precise(12))
+  AliasSet[0x555ed300e240, 1] must alias, Ref       Pointers: (ptr @__const.foo.arr, LocationSize::precise(12))
+  AliasSet[0x555ed300e330, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(4)), (ptr %2, LocationSize::precise(4)), (ptr %17, LocationSize::precise(4))
+  AliasSet[0x555ed300e470, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(4)), (ptr %3, LocationSize::precise(4)), (ptr %16, LocationSize::precise(4))
+
+
+Function main:
+
+  store i32 0, ptr %1, align 4 DOES NOT ALIAS WITH ANY LOADS
+
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x555ed3008700, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x555ed300e380, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/********************** Check Against Reference Implementations Below **********************/
+/**                                                                                       **/
+/**                                                                                       **/
+/** print-alias-sets pass results:                                                        **/
+
+
+Alias sets for function 'foo':
+Alias Set Tracker: 4 alias sets for 13 pointer values.
+  AliasSet[0x5567a7cd9160, 6] may alias, Mod/Ref   Pointers: (ptr %4, LocationSize::precise(12)), (ptr %5, LocationSize::precise(12)), (ptr %6, LocationSize::precise(4)), (ptr %8, LocationSize::precise(4)), (ptr %11, LocationSize::precise(4)), (ptr %18, LocationSize::precise(12))
+  AliasSet[0x5567a7cd9250, 1] must alias, Ref       Pointers: (ptr @__const.foo.arr, LocationSize::precise(12))
+  AliasSet[0x5567a7cd9340, 3] must alias, Mod/Ref   Pointers: (ptr %7, LocationSize::precise(4)), (ptr %2, LocationSize::precise(4)), (ptr %17, LocationSize::precise(4))
+  AliasSet[0x5567a7cd9480, 3] must alias, Mod/Ref   Pointers: (ptr %10, LocationSize::precise(4)), (ptr %3, LocationSize::precise(4)), (ptr %16, LocationSize::precise(4))
+
+Alias sets for function 'main':
+Alias Set Tracker: 2 alias sets for 1 pointer values.
+  AliasSet[0x5567a7cd92a0, 1] must alias, Mod       Pointers: (ptr %1, LocationSize::precise(4))
+  AliasSet[0x5567a7cd9570, 1] may alias, Mod/Ref   
+    1 Unknown instructions:   %2 = call i32 @foo()
+
+
+/**                                                                                       **/
+/**                                                                                       **/
+/** aa-eval pass pass results:                                                            **/
+
+
+===== Alias Analysis Evaluator Report =====
+  10 Total Alias Queries Performed
+  7 no alias responses (70.0%)
+  0 may alias responses (0.0%)
+  0 partial alias responses (0.0%)
+  3 must alias responses (30.0%)
+  Alias Analysis Evaluator Pointer Alias Summary: 70%/0%/0%/30%
+  78 Total ModRef Queries Performed
+  55 no mod/ref responses (70.5%)
+  5 mod responses (6.4%)
+  0 ref responses (0.0%)
+  18 mod & ref responses (23.0%)
+  Alias Analysis Evaluator Mod/Ref Summary: 70%/6%/0%/23%
+/**                                                                                       **/
+/**                                                                                       **/
+/*******************************************************************************************/
+
