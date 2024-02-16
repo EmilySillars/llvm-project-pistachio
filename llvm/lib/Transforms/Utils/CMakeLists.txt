@@ -36,6 +36,7 @@ add_llvm_component_library(LLVMTransformUtils
   InstructionNamer.cpp
   IntegerDivision.cpp
   LCSSA.cpp
+  Learning.cpp
   LibCallsShrinkWrap.cpp
   Local.cpp
   LoopConstrainer.cpp
