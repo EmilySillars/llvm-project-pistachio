@@ -1,1 +1,5 @@
+tiled_output
+regular_output
+*.o
 out/*
+output/*

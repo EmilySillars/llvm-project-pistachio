@@ -62,7 +62,7 @@ then build with:
 ninja -j 20
 ```
 
-3. ~~Make sure everything is okay by running regression tests:~~
+3. Make sure everything is okay by running regression tests:
 
 ```
 cmake --build . --target check-mlir
