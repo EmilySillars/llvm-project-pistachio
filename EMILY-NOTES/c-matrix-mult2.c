@@ -11,9 +11,9 @@
 This file contains a stripped down example of loop blocking
 to make it easier to view LLVM's control flow graph
 
-clang -O1 -Xclang -disable-llvm-passes -emit-llvm
-pistachio-notes/c-matrix-mult2.c -c -o "pistachio-notes/out/c-matrix-mult2.bc"
-build/bin/opt pistachio-notes/out/c-matrix-mult2.bc -passes=view-cfg-only
+clang -O1 -Xclang -disable-llvm-passes -emit-llvm \
+EMILY-NOTES/c-matrix-mult2.c -c -o "EMILY-NOTES/out/c-matrix-mult2.bc"
+build-riscv/bin/opt EMILY-NOTES/out/c-matrix-mult2.bc -passes=view-cfg-only
 
 Tiling libraries???
 https://llvm.org/doxygen/MatrixUtils_8h.html

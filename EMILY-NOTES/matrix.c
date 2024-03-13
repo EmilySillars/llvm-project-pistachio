@@ -8,7 +8,7 @@ https://www.graphviz.org/download/
 
 https://askubuntu.com/questions/1181332/no-application-is-registered-as-handling-this-file-for-dot-files
 
-
+https://stackoverflow.com/questions/11613999/how-can-i-make-llvm-display-graphs-in-a-different-viewer
 */
  void bijk(array A, array B, array C, int n, int bsize)
  {
