@@ -2,6 +2,16 @@
 
 ## C to LLVM
 
+Automate process with
+
+```
+sh c-to-llvm.sh simple-c.c
+```
+
+(replace `simple-c.c` with your desired input mlir file)
+
+#### [simple-c.c](simple-c.c)
+
 Compile to Executeable: `clang simple-c.c -o out/simple-c.o`
 
 Run executeable: `out/simple-c.o`
@@ -14,7 +24,16 @@ LLVM IR to Exxecuteable: `../../build-riscv/bin/clang out/simple-c.ll -o out/sim
 
 ## MLIR to LLVM
 
+Automate process with 
+
+```
+sh to-llvm.sh minimal.mlir
+```
+
+(replace `minimal.mlir` with your desired input mlir file)
+
 1) #### [minimal.mlir](minimal.mlir)
+
    Convert all dialects to LLVM dialect:
 
    ```

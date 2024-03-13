@@ -3,3 +3,4 @@ regular_output
 *.o
 out/*
 output/*
+learning-mlir/out/*
