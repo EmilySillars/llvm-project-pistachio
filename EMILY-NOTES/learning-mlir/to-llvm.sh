@@ -11,7 +11,7 @@ minusTwo="$(($lines-2))"
 head --lines 2 out/$basename.ll > out/front.ll
 tail --lines $minusTwo out/$basename.ll > out/back.ll
 cat out/front.ll > out/$basename-frankenstein.ll
-cat middle.ll >> out/$basename-frankenstein.ll
+cat middle2.ll >> out/$basename-frankenstein.ll
 cat out/back.ll >> out/$basename-frankenstein.ll
 echo "clang out/$basename-frankenstein.ll -o out/$basename-frankenstein.o"
 clang out/$basename-frankenstein.ll -o out/$basename-frankenstein.o

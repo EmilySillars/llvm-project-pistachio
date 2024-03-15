@@ -1,5 +1,7 @@
 # Getting Started w/ MLIR
 
+ `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
+
 ## C to LLVM
 
 Automate process with
