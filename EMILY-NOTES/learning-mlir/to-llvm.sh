@@ -8,11 +8,14 @@ echo "mlir-translate --mlir-to-llvmir out/$basename-in-llvm-dialect.mlir > out/$
 mlir-translate --mlir-to-llvmir out/$basename-in-llvm-dialect.mlir > out/$basename.ll
 lines=`wc --lines out/$basename.ll | sed -r 's/([^0-9]*([0-9]*)){1}.*/\2/'`
 minusTwo="$(($lines-2))"
-head --lines 2 out/$basename.ll > out/front.ll
-tail --lines $minusTwo out/$basename.ll > out/back.ll
-cat out/front.ll > out/$basename-frankenstein.ll
-cat middle2.ll >> out/$basename-frankenstein.ll
-cat out/back.ll >> out/$basename-frankenstein.ll
+head --lines 2 out/$basename.ll > out/linalg-front.ll
+minusFive="$(($minusTwo-5))"
+tail --lines $minusTwo out/$basename.ll > out/linalg-back.ll
+head --lines $minusFive out/linalg-back.ll > out/linalg-middle.ll
+cat out/linalg-front.ll > out/$basename-frankenstein.ll
+cat main-func.ll >> out/$basename-frankenstein.ll
+cat out/linalg-middle.ll >> out/$basename-frankenstein.ll
+cat main-func-metadata.ll >> out/$basename-frankenstein.ll
 echo "clang out/$basename-frankenstein.ll -o out/$basename-frankenstein.o"
 clang out/$basename-frankenstein.ll -o out/$basename-frankenstein.o
 echo "out/$basename-frankenstein.o"

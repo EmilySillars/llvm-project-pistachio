@@ -1,6 +1,24 @@
 # Getting Started w/ MLIR
 
+Before starting, make sure to add your MLIR LLVM build to your path.
+
+For example,
+
  `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
+
+## MLIR + C to LLVM
+
+Automate process with
+
+```
+sh mlir-to-llvm.sh <input.mlir> <c-file-in-which-to-embed-mlir.c>
+```
+
+For example,
+
+`sh mlir-to-llvm.sh hello.mlir print-fake-tensors.c`
+
+**This `mlir-to-llvm` script will add a main function that prints out the tensor returned by function `simp`,** where `simp` is a function defined in MLIR with signature `func.func @simp(%arg : tensor<2xf32>) -> tensor<2xf32>`.
 
 ## C to LLVM
 
