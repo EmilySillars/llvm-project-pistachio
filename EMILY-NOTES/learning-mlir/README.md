@@ -6,6 +6,12 @@ For example,
 
  `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
 
+## Quick Examples: run-func-as-mlir.sh
+
+- `sh run-func-as-mlir.sh print-tensors.mlir main`
+- `sh run-func-as-mlir.sh practice-scf.mlir main`
+- `sh run-func-as-mlir.sh print-memrefs.mlir main` (NOT WORKING)
+
 ## Simple Example: Printing out a tensor
 
 - `printfMemrefF32` prints out a tensor!
@@ -205,35 +211,26 @@ sh to-llvm.sh minimal.mlir
    test.mlir:6:7: note: see current operation: %6 = "builtin.unrealized_conversion_cast"(%5) : (!llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>) -> memref<10xf32>
    ```
 
-   
-
-   Translate LLVM MLIR dialect to LLVM IR:
-
-   ```
-   mlir-translate --mlir-to-llvmir test-in-llvm-dialect.mlir > test.ll
-   ```
-
-   Convert .ll file to executable using clang:
-
    ## Experimenting with scf
-   
+
    ```
-   rm hoodle.mlir; \
-   mlir-opt /home/hoppip/llvm-project-pistachio/EMILY-NOTES/learning-mlir/practice-scf.mlir \
-   -test-linalg-transform-patterns=test-linalg-to-vector-patterns \
-   -empty-tensor-to-alloc-tensor -linalg-bufferize -arith-bufferize \
-   -bufferization-bufferize -tensor-bufferize -func-bufferize \
-   -finalizing-bufferize -buffer-deallocation-pipeline -convert-bufferization-to-memref \
-   -convert-linalg-to-loops -convert-scf-to-cf -convert-vector-to-llvm --convert-cf-to-llvm -expand-strided-metadata \
-   -lower-affine -convert-arith-to-llvm -finalize-memref-to-llvm -convert-func-to-llvm -reconcile-unrealized-casts > hoodle.mlir 
-   
+   sh run-func-as-mlir.sh practice-scf.mlir main
    ```
    
-   second step:
-   
+   Output:
+
    ```
-   mlir-cpu-runner -e main -entry-point-result=void \
-   -shared-libs=/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so hoodle.mlir
+   ( 0, 1, 7, 3 )
+   ( 0 )
+   ( 1 )
+   ( 8 )
+   ( 11 )
+   ( 11 )
+   ( 12 )
+   ( 19 )
+   ( 22 )
+   ( 0.2 )
+   ( 0, 1, 7, 3 )
    ```
    
    
