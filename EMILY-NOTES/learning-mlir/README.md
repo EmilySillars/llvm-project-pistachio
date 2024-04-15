@@ -215,5 +215,25 @@ sh to-llvm.sh minimal.mlir
 
    Convert .ll file to executable using clang:
 
+   ## Experimenting with scf
    
-
+   ```
+   rm hoodle.mlir; \
+   mlir-opt /home/hoppip/llvm-project-pistachio/EMILY-NOTES/learning-mlir/practice-scf.mlir \
+   -test-linalg-transform-patterns=test-linalg-to-vector-patterns \
+   -empty-tensor-to-alloc-tensor -linalg-bufferize -arith-bufferize \
+   -bufferization-bufferize -tensor-bufferize -func-bufferize \
+   -finalizing-bufferize -buffer-deallocation-pipeline -convert-bufferization-to-memref \
+   -convert-linalg-to-loops -convert-scf-to-cf -convert-vector-to-llvm --convert-cf-to-llvm -expand-strided-metadata \
+   -lower-affine -convert-arith-to-llvm -finalize-memref-to-llvm -convert-func-to-llvm -reconcile-unrealized-casts > hoodle.mlir 
+   
+   ```
+   
+   second step:
+   
+   ```
+   mlir-cpu-runner -e main -entry-point-result=void \
+   -shared-libs=/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so hoodle.mlir
+   ```
+   
+   
