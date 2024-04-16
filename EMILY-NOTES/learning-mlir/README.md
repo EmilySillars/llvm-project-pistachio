@@ -6,10 +6,13 @@ For example,
 
  `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
 
-## Quick Examples: run-func-as-mlir.sh
+## Quick Examples: mlir-cpu-runner
 
 - `sh run-func-as-mlir.sh print-tensors.mlir main`
 - `sh run-func-as-mlir.sh practice-scf.mlir main`
+- `sh run-func-memrefs.sh print-memrefs.mlir main`
+- `sh run-func-memrefs.sh print-memrefs2.mlir main`
+- `sh run-func-memrefs.sh print-memrefs-qmat.mlir main`
 - `sh run-func-as-mlir.sh print-memrefs.mlir main` (NOT WORKING)
 
 ## Simple Example: Printing out a tensor

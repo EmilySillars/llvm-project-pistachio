@@ -3,7 +3,9 @@
 // https://mlir.llvm.org/docs/Tutorials/transform/Ch0/#tiling-and-loop-materialization
 // https://github.com/llvm/llvm-project/blob/1a4dd8d36206352220eb3306c3bdea79b6eeffc3/mlir/test/Integration/Dialect/Linalg/CPU/test-padtensor.mlir
 
-module {
+// https://discourse.llvm.org/t/reasoning-about-memref-mutability/3830
+
+
   memref.global "private" constant @__constant_1x2x3xf32 : memref<1x2x3xf32> = dense<[[[1.000000e+00, 2.000000e+00, 3.000000e+00], [2.000000e+00, 3.000000e+00, 4.000000e+00]]]>
   func.func @main() {
     %cst = arith.constant 2.300000e+00 : f32
@@ -21,7 +23,7 @@ module {
     return
   }
   func.func private @printMemrefF32(memref<*xf32>)
-}
+
 
 
 // func.func @main() {
