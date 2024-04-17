@@ -6,16 +6,57 @@ For example,
 
  `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
 
-## Quick Examples: mlir-cpu-runner
+## Quick Examples w/ mlir-cpu-runner
 
-- `sh run-func-as-mlir.sh print-tensors.mlir main`
-- `sh run-func-as-mlir.sh practice-scf.mlir main`
-- `sh run-func-memrefs.sh print-memrefs.mlir main`
-- `sh run-func-memrefs.sh print-memrefs2.mlir main`
-- `sh run-func-memrefs.sh print-memrefs-qmat.mlir main`
-- `sh run-func-as-mlir.sh print-memrefs.mlir main` (NOT WORKING)
+- [Print out a tensor](print-tensors.mlir)
 
-## Simple Example: Printing out a tensor
+  ```
+  sh run-func-as-mlir.sh print-tensors.mlir main
+  ```
+
+- [Loop through a vector](practice-scf.mlir)
+
+  ```
+  sh run-func-as-mlir.sh practice-scf.mlir main
+  ```
+
+- [Print out a matrix](print-memrefs.mlir) (represented as a memref)
+
+  ```
+  sh run-func-memrefs.sh print-memrefs.mlir main
+  ```
+
+- [Print out even more matrices](print-memrefs2.mlir) (represented as memrefs)
+
+  ```
+  sh run-func-memrefs.sh print-memrefs2.mlir main
+  ```
+
+- [Multiply two matrices](print-memrefs-qmat.mlir) (quantized matrix multiplication)
+
+  ```
+  sh run-func-memrefs.sh print-memrefs-qmat.mlir main
+  ```
+
+- [Print out *part* of a matrix](memref-subview-ex.mlir) (represented as a memref.subview)
+
+  ```
+  sh run-func-as-mlir.sh memref-subview-ex.mlir main
+  ```
+
+- Split a matrix into tiles (using memref.subview) ***TODO***
+  ```
+  TODO
+  ```
+
+- Tiled Matrix Multiplication (QMAT) ***TODO***
+  ```
+  TODO
+  ```
+
+- what next?
+
+## Printing MLIR tensor with JIT (mlir-cpu-runner)
 
 - `printfMemrefF32` prints out a tensor!
 
@@ -97,7 +138,7 @@ Possible solution: https://discourse.llvm.org/t/symbols-not-found-memrefcopy/458
 
 Or maybe I need to change my C file to a CPP file and manually include [/home/hoppip/llvm-project-pistachio/mlir/include/mlir/ExecutionEngine/RunnerUtils.h](/home/hoppip/llvm-project-pistachio/mlir/include/mlir/ExecutionEngine/RunnerUtils.h) ???
 
-## MLIR + C to LLVM
+## Printing MLIR tensor with a C function
 
 Automate process with
 
@@ -111,7 +152,7 @@ For example,
 
 **This `mlir-to-llvm` script will add a main function that prints out the tensor returned by function `simp`,** where `simp` is a function defined in MLIR with signature `func.func @simp(%arg : tensor<2xf32>) -> tensor<2xf32>`.
 
-## C to LLVM
+## Compile C to LLVM + Run
 
 Automate process with
 
@@ -125,7 +166,7 @@ For example,
 sh c-to-llvm.sh simple-c.c
 ```
 
-#### [simple-c.c](simple-c.c)
+1. ### [simple-c.c](simple-c.c)
 
 Compile to Executeable: `clang simple-c.c -o out/simple-c.o`
 
@@ -137,7 +178,7 @@ LLVM Bitcode to LLVM IR: `../../build-riscv/bin/llvm-dis < out/simple-c.bc > out
 
 LLVM IR to Exxecuteable: `../../build-riscv/bin/clang out/simple-c.ll -o out/simple-c.o`
 
-## MLIR to LLVM
+## Compile MLIR to LLVM + Run
 
 Automate process with 
 
@@ -195,8 +236,6 @@ sh to-llvm.sh minimal.mlir
    clang out/test.ll -o out/test.o
    ```
 
-   
-
    ##### *Method 2:* (Not working)
 
    Convert all dialects to LLVM dialect:
@@ -204,7 +243,7 @@ sh to-llvm.sh minimal.mlir
    ```
    mlir-opt test.mlir --convert-scf-to-cf --convert-cf-to-llvm --func-bufferize --convert-func-to-llvm          --convert-arith-to-llvm --expand-strided-metadata --normalize-memrefs          --memref-expand --fold-memref-alias-ops --finalize-memref-to-llvm --reconcile-unrealized-casts > test-in-llvm-dialect.mlir
    ```
-
+   
    Error:
 
    ```
@@ -212,28 +251,6 @@ sh to-llvm.sh minimal.mlir
          %lhs : tensor<10xf32>,
          ^
    test.mlir:6:7: note: see current operation: %6 = "builtin.unrealized_conversion_cast"(%5) : (!llvm.struct<(ptr, ptr, i64, array<1 x i64>, array<1 x i64>)>) -> memref<10xf32>
-   ```
-
-   ## Experimenting with scf
-
-   ```
-   sh run-func-as-mlir.sh practice-scf.mlir main
-   ```
-   
-   Output:
-
-   ```
-   ( 0, 1, 7, 3 )
-   ( 0 )
-   ( 1 )
-   ( 8 )
-   ( 11 )
-   ( 11 )
-   ( 12 )
-   ( 19 )
-   ( 22 )
-   ( 0.2 )
-   ( 0, 1, 7, 3 )
    ```
    
    
