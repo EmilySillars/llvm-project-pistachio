@@ -26,14 +26,15 @@
 
   // %1 = memref.transpose %0 (i, j) -> (j, i) : memref<?x?xf32> to memref<?x?xf32, affine_map<(d0, d1)[s0] -> (d1 * s0 + d0)>>
 
-  "func.func"() <{function_type = (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> (), sym_name = "simple_matmul_tiled"}> ({
-  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1,16]>>, %arg2: memref<16x16xi32>):
+  "func.func"() <{function_type = (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32, strided<[16,1]>>) -> (), sym_name = "simple_matmul_tiled"}> ({
+  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1,16]>>, %arg2: memref<16x16xi32, strided<[16,1]>>):
     %0 = "arith.constant"() <{value = 0 : i32}> : () -> i32
     %zero = arith.constant 0 : index
     %one = arith.constant 1: index
     %sixteen = arith.constant 16 : index
     %two = arith.constant 2 : index
     %alloc = memref.alloc() {alignment = 1 : i64} : memref<2x2xi32> // fake result value
+    linalg.fill ins(%0 : i32) outs(%alloc : memref<2x2xi32>)
     %arg1_t = memref.transpose %arg1 (i, j) -> (j, i): memref<16x16xi8, strided<[1,16]>> to  memref<16x16xi8, strided<[16,1]>>
     %fake_arg2 = memref.alloc() {alignment = 1 : i64} : memref<16x16xi32> // fake result value
     // enter FOR LOOP
@@ -45,11 +46,11 @@
     %rightTile = memref.subview %arg1_t[%zero,%i][16,2][1,1] : memref<16x16xi8, strided<[16,1]>> to memref<16x2xi8, strided<[16,1], offset: ?>>
     %rightTileCasted = memref.cast %rightTile : memref<16x2xi8, strided<[16,1], offset: ?>> to memref<16x2xi8, strided<[16,1]>>
     // pull out output tile
-    %outputTile = memref.subview %fake_arg2[%i,%i][2,2][1,1] : memref<16x16xi32> to memref<2x2xi32, strided<[16,1], offset: ?>>
+    %outputTile = memref.subview %arg2[%i,%i][2,2][1,1] : memref<16x16xi32, strided<[16,1]>> to memref<2x2xi32, strided<[16,1], offset: ?>>
     %outputTileCasted = memref.cast %outputTile : memref<2x2xi32, strided<[16,1], offset: ?>> to memref<2x2xi32, strided<[16,1]>>
    //%outputTileCasted2 = memref.cast %outputTileCasted : memref<2x2xi32, strided<[16,1]>> to memref<2x2xi32>
     //feed computation to linalg generic (accelerator workload)
-    "linalg.generic"(%leftTileCasted, %rightTileCasted, %0, %0, %alloc) <{
+    "linalg.generic"(%leftTileCasted, %rightTileCasted, %0, %0, %outputTileCasted) <{
       indexing_maps = [
         affine_map<(d0, d1, d2) -> (d0, d2)>, 
         affine_map<(d0, d1, d2) -> (d2, d1)>, 
@@ -70,9 +71,10 @@
       %6 = "arith.addi"(%arg7, %5) : (i32, i32) -> i32
       func.call @myPrintI32(%6) : (i32 )-> ()
       "linalg.yield"(%6) : (i32) -> ()
-    }) : (memref<2x16xi8>, memref<16x2xi8, strided<[16,1]>>, i32, i32, memref<2x2xi32>) -> ()
+    }) : (memref<2x16xi8>, memref<16x2xi8, strided<[16,1]>>, i32, i32, memref<2x2xi32, strided<[16,1]>>) -> ()
     %alloc3 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
     func.call @printMemrefI32(%alloc3) : (memref<*xi32>) -> ()
+    // write the tile to its correct location in arg2???
     }
     %alloc2 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
     func.call @printMemrefI32(%alloc2) : (memref<*xi32>) -> ()
@@ -118,12 +120,13 @@ func.func @main() {
   // another arg3: set all to zero
   %alloc_00 = memref.alloc() {alignment = 64 : i64} : memref<16x16xi32> 
   linalg.fill ins(%zero : i32) outs(%alloc_00 :memref<16x16xi32>)
+  %alloc_000 = memref.reinterpret_cast %alloc_00 to offset: [0], sizes:[16,16], strides:[16,1]: memref<16x16xi32> to  memref<16x16xi32, strided<[16,1]>>
 
   //call matmul
   call @simple_matmul(%0, %alloc_strided, %alloc_0) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> ()
 
   //call matmul
-  call @simple_matmul_tiled(%0, %alloc_strided, %alloc_00) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> ()
+  call @simple_matmul_tiled(%0, %alloc_strided, %alloc_000) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32,strided<[16,1]>>) -> ()
 
   // print result of simple_matmul
   %cast2 = memref.cast %alloc_0 : memref<16x16xi32> to memref<*xi32>
