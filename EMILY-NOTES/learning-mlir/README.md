@@ -56,6 +56,8 @@ For example,
 
 - what next?
 
+
+
 ## Printing MLIR tensor with JIT (mlir-cpu-runner)
 
 - `printfMemrefF32` prints out a tensor!
@@ -254,3 +256,25 @@ sh to-llvm.sh minimal.mlir
    ```
    
    
+
+### SCF notes
+
+```
+    //  %result1, %result2 = scf.for %i = %c0 to %c8 step %c1 iter_args(%partial = %init, %hoodle = %x) -> (f32, index) {
+    //     // extract subview (tile)
+    //     %tile= memref.subview %const[%x,%y][16,2][1,1]  : memref<16x16xf32> to memref<16x2xf32, strided<[16, 1], offset: ?>>
+    //     // print the tile
+    //     // %cast3 = memref.cast %tile : memref<16x2xf32, strided<[16, 1], offset: ?>> to memref<*xf32>
+    //     // func.call @printMemrefF32(%cast3) : (memref<*xf32>) -> ()
+    //     // update indices
+    //     func.call @myPrintF32(%partial) : (f32) -> ()
+    //     // %x1 = arith.addf %x, %i : index
+    //     // just incrementing a float each iter
+    //     %one = arith.constant 1.0 : f32
+    //     %updated = arith.addf %partial, %one : f32
+    //     %updated2 = arith.addi %hoodle, %c0 : index
+    //     scf.yield %updated, %updated2 : f32,index 
+    //     //scf.yield %updated2 : index
+    //  }
+```
+

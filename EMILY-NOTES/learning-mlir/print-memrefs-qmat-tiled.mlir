@@ -9,7 +9,7 @@
 
 "builtin.module"() ({
   "func.func"() <{function_type = (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> (), sym_name = "simple_matmul"}> ({
-  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1, 16]>>, %arg2: memref<16x16xi32>):
+  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1,16]>>, %arg2: memref<16x16xi32>):
     %0 = "arith.constant"() <{value = 0 : i32}> : () -> i32
     "linalg.generic"(%arg0, %arg1, %0, %0, %arg2) <{indexing_maps = [affine_map<(d0, d1, d2) -> (d0, d2)>, affine_map<(d0, d1, d2) -> (d2, d1)>, affine_map<(d0, d1, d2) -> ()>, affine_map<(d0, d1, d2) -> ()>, affine_map<(d0, d1, d2) -> (d0, d1)>], iterator_types = [#linalg.iterator_type<parallel>, #linalg.iterator_type<parallel>, #linalg.iterator_type<reduction>], operandSegmentSizes = array<i32: 4, 1>}> ({
     ^bb0(%arg3: i8, %arg4: i8, %arg5: i32, %arg6: i32, %arg7: i32):
@@ -20,17 +20,47 @@
       %5 = "arith.muli"(%2, %4) : (i32, i32) -> i32
       %6 = "arith.addi"(%arg7, %5) : (i32, i32) -> i32
       "linalg.yield"(%6) : (i32) -> ()
-    }) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, i32, i32, memref<16x16xi32>) -> ()
+    }) : (memref<16x16xi8>, memref<16x16xi8, strided<[1,16]>>, i32, i32, memref<16x16xi32>) -> ()
     "func.return"() : () -> ()
   }) : () -> ()
 
+  // %1 = memref.transpose %0 (i, j) -> (j, i) : memref<?x?xf32> to memref<?x?xf32, affine_map<(d0, d1)[s0] -> (d1 * s0 + d0)>>
+
   "func.func"() <{function_type = (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> (), sym_name = "simple_matmul_tiled"}> ({
-  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1, 16]>>, %arg2: memref<16x16xi32>):
+  ^bb0(%arg0: memref<16x16xi8>, %arg1: memref<16x16xi8, strided<[1,16]>>, %arg2: memref<16x16xi32>):
     %0 = "arith.constant"() <{value = 0 : i32}> : () -> i32
-
-
-    
-    "linalg.generic"(%arg0, %arg1, %0, %0, %arg2) <{indexing_maps = [affine_map<(d0, d1, d2) -> (d0, d2)>, affine_map<(d0, d1, d2) -> (d2, d1)>, affine_map<(d0, d1, d2) -> ()>, affine_map<(d0, d1, d2) -> ()>, affine_map<(d0, d1, d2) -> (d0, d1)>], iterator_types = [#linalg.iterator_type<parallel>, #linalg.iterator_type<parallel>, #linalg.iterator_type<reduction>], operandSegmentSizes = array<i32: 4, 1>}> ({
+    %zero = arith.constant 0 : index
+    %one = arith.constant 1: index
+    %sixteen = arith.constant 16 : index
+    %two = arith.constant 2 : index
+    %alloc = memref.alloc() {alignment = 1 : i64} : memref<2x2xi32> // fake result value
+    %arg1_t = memref.transpose %arg1 (i, j) -> (j, i): memref<16x16xi8, strided<[1,16]>> to  memref<16x16xi8, strided<[16,1]>>
+    %fake_arg2 = memref.alloc() {alignment = 1 : i64} : memref<16x16xi32> // fake result value
+    // enter FOR LOOP
+    scf.for %i = %zero to %sixteen step %two iter_args() -> () {
+    // pull out left tile
+    %leftTile = memref.subview %arg0[%i,%zero][2,16][1,1] : memref<16x16xi8> to memref<2x16xi8, strided<[16, 1], offset: ?>>
+    %leftTileCasted = memref.cast %leftTile : memref<2x16xi8, strided<[16, 1], offset: ?>> to memref<2x16xi8>
+    // pull out right tile
+    %rightTile = memref.subview %arg1_t[%zero,%i][16,2][1,1] : memref<16x16xi8, strided<[16,1]>> to memref<16x2xi8, strided<[16,1], offset: ?>>
+    %rightTileCasted = memref.cast %rightTile : memref<16x2xi8, strided<[16,1], offset: ?>> to memref<16x2xi8, strided<[16,1]>>
+    // pull out output tile
+    %outputTile = memref.subview %fake_arg2[%i,%i][2,2][1,1] : memref<16x16xi32> to memref<2x2xi32, strided<[16,1], offset: ?>>
+    %outputTileCasted = memref.cast %outputTile : memref<2x2xi32, strided<[16,1], offset: ?>> to memref<2x2xi32, strided<[16,1]>>
+   //%outputTileCasted2 = memref.cast %outputTileCasted : memref<2x2xi32, strided<[16,1]>> to memref<2x2xi32>
+    //feed computation to linalg generic (accelerator workload)
+    "linalg.generic"(%leftTileCasted, %rightTileCasted, %0, %0, %alloc) <{
+      indexing_maps = [
+        affine_map<(d0, d1, d2) -> (d0, d2)>, 
+        affine_map<(d0, d1, d2) -> (d2, d1)>, 
+        affine_map<(d0, d1, d2) -> ()>, 
+        affine_map<(d0, d1, d2) -> ()>, 
+        affine_map<(d0, d1, d2) -> (d0, d1)>], 
+        iterator_types = [
+          #linalg.iterator_type<parallel>, 
+          #linalg.iterator_type<parallel>, 
+          #linalg.iterator_type<reduction>], 
+          operandSegmentSizes = array<i32: 4, 1>}> ({
     ^bb0(%arg3: i8, %arg4: i8, %arg5: i32, %arg6: i32, %arg7: i32):
       %1 = "arith.extsi"(%arg3) : (i8) -> i32
       %2 = "arith.subi"(%1, %arg5) : (i32, i32) -> i32
@@ -38,8 +68,16 @@
       %4 = "arith.subi"(%3, %arg6) : (i32, i32) -> i32
       %5 = "arith.muli"(%2, %4) : (i32, i32) -> i32
       %6 = "arith.addi"(%arg7, %5) : (i32, i32) -> i32
+      func.call @myPrintI32(%6) : (i32 )-> ()
       "linalg.yield"(%6) : (i32) -> ()
-    }) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, i32, i32, memref<16x16xi32>) -> ()
+    }) : (memref<2x16xi8>, memref<16x2xi8, strided<[16,1]>>, i32, i32, memref<2x2xi32>) -> ()
+    %alloc3 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
+    func.call @printMemrefI32(%alloc3) : (memref<*xi32>) -> ()
+    }
+    %alloc2 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
+    func.call @printMemrefI32(%alloc2) : (memref<*xi32>) -> ()
+    memref.dealloc %alloc : memref<2x2xi32>
+    memref.dealloc %fake_arg2 : memref<16x16xi32>
     "func.return"() : () -> ()
   }) : () -> ()
 
@@ -84,7 +122,7 @@ func.func @main() {
   //call matmul
   call @simple_matmul(%0, %alloc_strided, %alloc_0) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> ()
 
-   //call matmul
+  //call matmul
   call @simple_matmul_tiled(%0, %alloc_strided, %alloc_00) : (memref<16x16xi8>, memref<16x16xi8, strided<[1, 16]>>, memref<16x16xi32>) -> ()
 
   // print result of simple_matmul
@@ -101,4 +139,30 @@ func.func @main() {
   return
 }
 func.func private @printMemrefI32(memref<*xi32>)
+// helper to print out an f32
+func.func@myPrintF32(%arg0: f32){
+     %zeroo = arith.constant 0 : index
+     %dummy_v = arith.constant dense<[0.2]> : vector<1xf32>
+     %result_v = vector.insertelement %arg0, %dummy_v[%zeroo : index] : vector<1xf32>
+     vector.print %result_v : vector<1xf32>
+     return
+}
+
+// helper to print out an i32
+func.func@myPrintI32(%arg0: i32){
+     %zeroo = arith.constant 0 : index
+     %dummy_v = arith.constant dense<[0]> : vector<1xi32>
+     %result_v = vector.insertelement %arg0, %dummy_v[%zeroo : index] : vector<1xi32>
+     vector.print %result_v : vector<1xi32>
+     return
+}
+
+// helper to print out an index
+func.func@myPrintIndex(%arg0: index){
+     %zeroo = arith.constant 0 : index
+     %dummy_v = arith.constant dense<[0]>: vector<1xindex>
+     %result_v = vector.insertelement %arg0, %dummy_v[%zeroo : index] : vector<1xindex>
+     vector.print %result_v : vector<1xindex>
+     return
+}
 }) : () -> ()
