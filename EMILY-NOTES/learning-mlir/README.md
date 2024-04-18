@@ -6,6 +6,14 @@ For example,
 
  `export PATH=/home/hoppip/llvm-project-pistachio/build-riscv/bin:$PATH`
 
+In the same vein, make sure to set the env variable `MLIR-CPU-RUNNER-LIBS` to the corresponding `.so` files in your build.
+
+For example,
+
+```
+export MLIR_CPU_RUNNER_LIBS=/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so
+```
+
 ## Quick Examples w/ mlir-cpu-runner
 
 - [Print out a tensor](print-tensors.mlir)
