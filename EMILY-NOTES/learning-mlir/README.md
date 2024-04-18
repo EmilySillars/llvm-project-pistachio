@@ -50,11 +50,12 @@ For example,
   sh run-func-memrefs.sh print-memrefs-tiled.mlir main
   ```
 
-- Tiled Matrix Multiplication (QMAT) ***TODO***
+- [Tiled Matrix Multiplication](print-memrefs-qmat-tiled.mlir) (QMAT) 
+  
   ```
-  TODO
+  sh run-func-memrefs.sh print-memrefs-qmat-tiled.mlir main
   ```
-
+  
 - what next?
 
 

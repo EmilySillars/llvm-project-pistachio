@@ -37,18 +37,22 @@
     linalg.fill ins(%0 : i32) outs(%alloc : memref<2x2xi32>)
     %arg1_t = memref.transpose %arg1 (i, j) -> (j, i): memref<16x16xi8, strided<[1,16]>> to  memref<16x16xi8, strided<[16,1]>>
     %fake_arg2 = memref.alloc() {alignment = 1 : i64} : memref<16x16xi32> // fake result value
+    //%i_blk_sz = arith.constant 2 : index
     // enter FOR LOOP
+    scf.for %k = %zero to %sixteen step %two iter_args() -> () {
+    scf.for %j = %zero to %one step %one iter_args() -> () {
+    
     scf.for %i = %zero to %sixteen step %two iter_args() -> () {
     // pull out left tile
-    %leftTile = memref.subview %arg0[%i,%zero][2,16][1,1] : memref<16x16xi8> to memref<2x16xi8, strided<[16, 1], offset: ?>>
+    %leftTile = memref.subview %arg0[%i,%j][2,16][1,1] : memref<16x16xi8> to memref<2x16xi8, strided<[16, 1], offset: ?>>
     %leftTileCasted = memref.cast %leftTile : memref<2x16xi8, strided<[16, 1], offset: ?>> to memref<2x16xi8>
     // pull out right tile
-    %rightTile = memref.subview %arg1_t[%zero,%i][16,2][1,1] : memref<16x16xi8, strided<[16,1]>> to memref<16x2xi8, strided<[16,1], offset: ?>>
+    %rightTile = memref.subview %arg1_t[%j,%k][16,2][1,1] : memref<16x16xi8, strided<[16,1]>> to memref<16x2xi8, strided<[16,1], offset: ?>>
     %rightTileCasted = memref.cast %rightTile : memref<16x2xi8, strided<[16,1], offset: ?>> to memref<16x2xi8, strided<[16,1]>>
     // pull out output tile
-    %outputTile = memref.subview %arg2[%i,%i][2,2][1,1] : memref<16x16xi32, strided<[16,1]>> to memref<2x2xi32, strided<[16,1], offset: ?>>
+    %outputTile = memref.subview %arg2[%i,%k][2,2][1,1] : memref<16x16xi32, strided<[16,1]>> to memref<2x2xi32, strided<[16,1], offset: ?>>
     %outputTileCasted = memref.cast %outputTile : memref<2x2xi32, strided<[16,1], offset: ?>> to memref<2x2xi32, strided<[16,1]>>
-   //%outputTileCasted2 = memref.cast %outputTileCasted : memref<2x2xi32, strided<[16,1]>> to memref<2x2xi32>
+  
     //feed computation to linalg generic (accelerator workload)
     "linalg.generic"(%leftTileCasted, %rightTileCasted, %0, %0, %outputTileCasted) <{
       indexing_maps = [
@@ -74,8 +78,10 @@
     }) : (memref<2x16xi8>, memref<16x2xi8, strided<[16,1]>>, i32, i32, memref<2x2xi32, strided<[16,1]>>) -> ()
     %alloc3 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
     func.call @printMemrefI32(%alloc3) : (memref<*xi32>) -> ()
-    // write the tile to its correct location in arg2???
-    }
+    } // end of i for
+    } // end of j for
+    } // end of k for
+
     %alloc2 = memref.cast %alloc :  memref<2x2xi32> to memref<*xi32>
     func.call @printMemrefI32(%alloc2) : (memref<*xi32>) -> ()
     memref.dealloc %alloc : memref<2x2xi32>
