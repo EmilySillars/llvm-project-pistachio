@@ -44,9 +44,10 @@ For example,
   sh run-func-as-mlir.sh memref-subview-ex.mlir main
   ```
 
-- Split a matrix into tiles (using memref.subview) ***TODO***
+- [Split a matrix into tiles](print-memrefs-tiled.mlir) (using memref.subview) 
+
   ```
-  TODO
+  sh run-func-memrefs.sh print-memrefs-tiled.mlir main
   ```
 
 - Tiled Matrix Multiplication (QMAT) ***TODO***
@@ -276,5 +277,14 @@ sh to-llvm.sh minimal.mlir
     //     scf.yield %updated, %updated2 : f32,index 
     //     //scf.yield %updated2 : index
     //  }
+```
+
+more notes
+
+```
+  //   %tile_left = memref.subview %arg0[%zero,%i][16,2][1,1]  : memref<16x16xi8> to memref<16x2xi8, strided<[16, 1], offset: ?>>
+ //     %tile_right = memref.subview %arg1[%i,%zero][2,16][1,1]  : memref<16x16xi8, strided<[1, 16]>> to memref<2x16xi8, strided<[16, 1], offset: ?>>
+   //   %tl_unstrided = memref.cast %tile_left : memref<16x2xi8, strided<[16, 1], offset: ?>> to memref<16x2xi8>
+     // %tr_unstrided = memref.cast %tile_left : memref<16x2xi8, strided<[16, 1], offset: ?>> to memref<16x2xi8, strided<[16,1]>>
 ```
 
