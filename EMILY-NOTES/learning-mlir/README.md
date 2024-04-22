@@ -64,6 +64,12 @@ export MLIR_CPU_RUNNER_LIBS=/home/hoppip/llvm-project-pistachio/build-riscv/lib/
   sh run-func-memrefs.sh print-memrefs-qmat-tiled.mlir main
   ```
   
+- [Fused Matrix Multiplication](print-memrefs-qmat-relu.mlir) and ReLU
+
+  ```
+  sh run-func-memrefs.sh print-memrefs-qmat-relu.mlir main
+  ```
+
 - what next?
 
 
