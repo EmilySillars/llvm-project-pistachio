@@ -303,3 +303,61 @@ more notes
      // %tr_unstrided = memref.cast %tile_left : memref<16x2xi8, strided<[16, 1], offset: ?>> to memref<16x2xi8, strided<[16,1]>>
 ```
 
+between preproc2 and preproc3, snax-mlir script inserts invalid static offsets into memrefs (why?!) does this happen in mlir-cpu-runner?
+
+In pistachio, one of these commands lowers subview:
+
+```
+-expand-strided-metadata -lower-affine -convert-arith-to-llvm \
+--memref-expand -finalize-memref-to-llvm
+```
+
+memref expand is not present in snax mlir script. Maybe memref expand gets rid of subviews??? can we add this before preproc 3 is generated??
+
+## debugging notes
+
+1. xdsl does not annotate memref.subview with memory space, leading to parse error:
+
+   ```
+     File "/opt/python3.11/lib/python3.11/site-packages/xdsl/parser/base_parser.py", line 98, in raise_error
+       raise ParseError(at_position, msg)
+   xdsl.utils.exceptions.ParseError: matmul.hoodle.mlir:14:119
+             %8 = memref.alloc() {"alignment" = 64 : i64} : memref<2x16xi8, #tsl.tsl<[?, 8] -> (?, 8), [?, 8] -> (256, 1)>>
+   ```
+
+   Solution: annotate subviews with correct memory space
+
+2. Even when memory space is annotated, mlir-opt does not like the large negative offsets in the memref.subviews:
+   ```
+   matmul.postproc.mlir:11:304: error: expected a 64-bit signed integer or '?'
+             %5 = "memref.subview"(%arg0) <{"static_offsets" = array<i64: -9223372036854775808, -9223372036854775808>, "static_sizes" = array<i64: 2, 16>, "static_strides" = array<i64: 1, 1>, "operandSegmentSizes" = array<i32: 1, 0, 0, 0>}> : (memref<16x16xi8>) -> memref<2x16xi8, strided<[16, 1], offset: -156797324626531188736>>
+   ```
+
+   Solution: change all static offsets to question marks like so
+   ```
+             %5 = "memref.subview"(%arg0) <{"static_offsets" = array<i64: ?, ?>, "static_sizes" = array<i64: 2, 16>, "static_strides" = array<i64: 1, 1>, "operandSegmentSizes" = array<i32: 1, 0, 0, 0>}> : (memref<16x16xi8>) -> memref<2x16xi8, strided<[16, 1], offset: -156797324626531188736>>
+   ```
+
+   
+
+3. After changing the static offsets to question marks, mlir-opt does not like the question marks:
+   ```
+   matmul.postproc.mlir:11:72: error: expected integer literal
+             %5 = "memref.subview"(%arg0) <{"static_offsets" = array<i64: ?, ?>, "static_sizes" = array<i64: 2, 16>, "static_strides" = array<i64: 1, 1>, "operandSegmentSizes" = array<i32: 1, 0, 0, 0>}> : (memref<16x16xi8>) -> memref<2x16xi8, strided<[16, 1], offset: -156797324626531188736>>
+   ```
+
+   
+
+4. what to do to solve this problem????
+
+**Question: what is different between these two scripts that causes one to fail compilation, and the other not to? (both files contain subviews)**
+
+**Potential Answer:** 
+
+- xDSL pass inserts static_offsets when they are not needed
+- One of the snax passes inserts static offsets where they are not needed and/or changes “?” into garbage values when it shouldn’t be
+
+**Next Step?** 
+
+- Maybe I need to break up the run-func-as-llvm.sh into intermediate files so it is easier to compare the two scripts
+- Or rewrite matmul example to explicitly use dynamic offsets?
