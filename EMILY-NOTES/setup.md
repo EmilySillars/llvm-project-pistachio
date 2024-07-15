@@ -1,5 +1,21 @@
 # Setting up DL + RISC-V Workflow
 
+## 0. Miscellaneous Notes (not needed for DL + RISCV Workflow)
+
+- Install AutoFirma:
+  - Download zip file according to your OS from [here](https://firmaelectronica.gob.es/Home/Descargas.html) 
+  - If you are using fedora, you may need to install java before you are able to successfully launch autofirma!
+  - Launch with: `autofirma`
+  - Install java if needed with: `sudo dnf install java-1.8.0-openjdk.x86_64`
+
+- Change clock to 12h time on fedora: `gsettings set org.gnome.desktop.interface clock-format '12h'`
+
+- Install valgrind on fedora: `sudo yum -y install valgrind`
+
+- [Install new fonts on fedora](https://docs.fedoraproject.org/en-US/quick-docs/fonts/)
+
+- Ubuntu Terminal [Font](https://design.ubuntu.com/font) and [Colors](https://oatcookies.neocities.org/ubuntu-terminal-colors)
+
 ## 1. Fork and then Clone LLVM
 
     1.  get ninja, instructions here: [https://ninja-build.org/](https://urldefense.com/v3/__https://ninja-build.org/__;!!D9dNQwwGXtA!SEOGnQ6kNZqQqZPcpFmf8I3xb2_IWywnYuC-onD9gFeQlo2vOJYwE8HHNPkxP2PYzkO6OKhJlpcbI74z4rRJOA$)
