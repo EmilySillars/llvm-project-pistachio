@@ -37,6 +37,12 @@ cd build-riscv
 ninja -j 20
 ```
 
+## Run matmul with mlir-cpu-runner
+
+```
+sh run-w-mlir-cpu-runner.sh matmul104x104 main
+```
+
 ## Testing the pass
 
 - Example input's matmul from here: https://github.com/EmilySillars/iree-fork/blob/tiling/iree-fork/matmul104x104.mlir
