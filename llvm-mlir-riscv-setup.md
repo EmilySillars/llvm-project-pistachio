@@ -1,4 +1,6 @@
-# Setting up DL + RISC-V Workflow
+# Setting up Deep Learning + RISC-V Workflow
+
+Official LLVM Setup Guide [here](https://llvm.org/docs/GettingStarted.html#getting-the-source-code-and-building-llvm)
 
 ## 0. miscellaneous
 
@@ -12,7 +14,7 @@
 
 ## 1. Fork and then Clone LLVM
 
-Get ninja, instructions here: [https://ninja-build.org/](https://ninja-build.org/)
+1. Get ninja, instructions here: [https://ninja-build.org/](https://ninja-build.org/)
 
 On ubuntu, get ninja by doing:
 
@@ -236,18 +238,19 @@ For me the command is: `MLIR_DIR=$(pwd)/llvm-project-pistachio/build-riscv/lib/c
    
    `cmake --build . --target check-onnx-lit`
    
-   ### Running out of space?
-   
-   When I run `cmake --build .` , my computer runs out of space and kills the process. I tried temporarily increasing my swap space... Source: *https://www.techotopia.com/index.php/Adding_and_Managing_Fedora_Swap_Space*, also https://wiki.archlinux.org/title/Btrfs#Swap_file
-   
-   Let's make a temporary swap space of 8 GB:
-   
-   7812500 * 1024 = 8000000000 MB = 8 GB, so do
-   
-   ```
-   btrfs filesystem mkswapfile --size 8g --uuid clear /newswap
-   swapon /newswap
-   ```
+
+### Running out of space?
+
+When I run `cmake --build .` , my computer runs out of space and kills the process. I tried temporarily increasing my swap space... Source: *https://www.techotopia.com/index.php/Adding_and_Managing_Fedora_Swap_Space*, also https://wiki.archlinux.org/title/Btrfs#Swap_file
+
+Let's make a temporary swap space of 8 GB:
+
+7812500 * 1024 = 8000000000 MB = 8 GB, so do
+
+```
+btrfs filesystem mkswapfile --size 8g --uuid clear /newswap
+swapon /newswap
+```
 
 verify everything works properly with
 
@@ -260,6 +263,8 @@ deactivate using
 ```
 swapoff /newswap
 ```
+
+## 
 
 ## Troubleshooting (Fedora)
 

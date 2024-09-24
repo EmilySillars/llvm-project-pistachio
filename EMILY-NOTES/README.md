@@ -1,47 +1,24 @@
 # Emily's Notes on Learning LLVM
 
-Computer Setup instructions [here](https://github.com/EmilySillars/llvm-project-pistachio/blob/learn-llvm/EMILY-NOTES/setup.md)
+- Computer Setup instructions [here](https://github.com/EmilySillars/llvm-project-pistachio/blob/learn-llvm/llvm-mlir-riscv-setup.md)
 
-## Building
-
-Prepare makefiles using following options:
-
-```
-cmake -G Ninja ../llvm \
--DLLVM_ENABLE_PROJECTS="mlir;clang;lld" \
--DLLVM_BUILD_EXAMPLES=ON \
--DLLVM_TARGETS_TO_BUILD="Native;NVPTX;AMDGPU;RISCV" \
--DCMAKE_BUILD_TYPE=Debug \
--DLLVM_USE_LINKER=lld \
--DCMAKE_C_COMPILER=/usr/bin/clang \
--DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
--DLLVM_ENABLE_ASSERTIONS=ON \
--DLLVM_ENABLE_RTTI=ON
-```
-
-Build with:
-
-```
-ninja -j 20
-```
-
-Build Opt with:
-```
-ninja -C build-riscv/ opt
-```
-
-## Invoking Pistachio Pass
-Execute these instructions from inside EMILY-NOTES directory...
-```
-../build-riscv/bin/clang tests/hello.c                                   # compile to executeable
-../build-riscv/bin/clang -O1 -emit-llvm tests/hello.c -c -o out/hello.bc # compile to LLVM bitcode
-../build-riscv/bin/llvm-dis < out/hello.bc | less                        # disassemble bitcode into LLVM assembly
-../build-riscv/bin/opt -disable-output out/hello.bc -passes=pistachio   # run hello pass over the LLVM bitcode
-```
+- Official Guide for Adding a Compiler Pass [here](https://llvm.org/docs/WritingAnLLVMNewPMPass.html)
 
 ## Adding a Pass to LLVM
+
 1) put `passName.h` in `llvm/include/llvm/Tranforms/Utils`
 2) put `passName.cpp` in `llvm/lib/Transforms/Utils`
 3) update `llvm/lib/Transforms/Utils/CMakeLists.txt` with `passName.cpp`
 4) update `llvm/lib/Passes/PassBuilder.cpp` with the line `#include "llvm/Transforms/Utils/passName.h"`
 5) update `llvm/lib/Passes/PassRegistry.def` with the line `FUNCTION_PASS("passName", PassNamePass())`
+
+## Invoking Pistachio Pass (Emily's custom pass)
+
+Execute these instructions from inside EMILY-NOTES directory...
+```
+../build-riscv/bin/clang tests/hello.c                                   # compile to executeable
+../build-riscv/bin/clang -O1 -emit-llvm tests/hello.c -c -o out/hello.bc # compile to LLVM bitcode
+../build-riscv/bin/llvm-dis < out/hello.bc | less                        # disassemble bitcode into LLVM assembly
+../build-riscv/bin/opt -disable-output out/hello.bc -passes=pistachio    # run pistachio pass over the LLVM bitcode
+```
+
