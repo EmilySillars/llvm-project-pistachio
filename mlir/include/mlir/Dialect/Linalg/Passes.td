@@ -11,6 +11,16 @@
 
 include "mlir/Pass/PassBase.td"
 
+def Avocado : Pass<"avocado", ""> {
+  let summary = "A 'hello world' pass at the linalg level";
+  let description = [{
+    Counts all instructions and prints function names.
+  }];
+  let constructor = "mlir::createAvocadoPass()";
+  let dependentDialects = ["linalg::LinalgDialect"];
+}
+
+
 def ConvertElementwiseToLinalg : Pass<"convert-elementwise-to-linalg", ""> {
   let summary = "Convert ElementwiseMappable ops to linalg";
   let description = [{

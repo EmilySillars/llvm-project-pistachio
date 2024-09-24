@@ -29,6 +29,9 @@ struct OneShotBufferizationOptions;
 #define GEN_PASS_DECL
 #include "mlir/Dialect/Linalg/Passes.h.inc"
 
+/// Create a "hello world" pass at the linalg level
+std::unique_ptr<Pass> createAvocadoPass();
+
 std::unique_ptr<Pass> createConvertElementwiseToLinalgPass();
 
 std::unique_ptr<Pass> createLinalgFoldUnitExtentDimsPass();
