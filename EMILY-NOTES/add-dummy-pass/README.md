@@ -63,6 +63,16 @@ sh run-w-mlir-cpu-runner.sh matmul104x104 main
 sh run-thru-avocado.sh matmul104x104
 ```
 
+Before adding `mlir::FunctionOpInterface`, output was
+
+```
+[hoppip@inf-205-98 add-dummy-pass]$ sh run-thru-avocado.sh matmul104x104.mlir 
+found an operation calledbuiltin.module
+```
+
+Afterward, output is
+
+
 ## Modifications needed to add the pass
 
 ```

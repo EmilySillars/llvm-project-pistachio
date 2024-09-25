@@ -6,13 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Linalg/Passes.h"
-
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
+#include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include <string> // for string compare
+#include <sstream>
+#include "mlir/IR/Attributes.h"
 
 namespace mlir {
 #define GEN_PASS_DEF_AVOCADO
@@ -32,17 +35,21 @@ using namespace mlir;
 // }
 
 // /// Given `op` assumed `isElementwiseMappableOpOnRankedTensors`, iterate over
-// /// the result types and return a list of values such that, for each result type
+// /// the result types and return a list of values such that, for each result
+// type
 // /// `t` and value `v` at the same index `idx`:
 // ///   1. `v.getType() == t`
 // ///   2. If an operand of `op` has type `t`, let `operand_first` be the first
 // ///      such operand. Then`v == operand_first`.
 // ///   3. Otherwise, v is a newly created `tensor::EmptyOp` with:
-// ///        a. Static and dynamic dims extracted from the first operand of `op`.
+// ///        a. Static and dynamic dims extracted from the first operand of
+// `op`.
 // ///        b. Elemental type equal to the elemental type of `t`.
 // ///
-// /// This is sufficient because ElementwiseMappable guarantees that "The static
-// /// types of all vector (resp. tensor) operands and results must have the same
+// /// This is sufficient because ElementwiseMappable guarantees that "The
+// static
+// /// types of all vector (resp. tensor) operands and results must have the
+// same
 // /// shape".
 // static SmallVector<Value, 4>
 // getOrCreateOperandsMatchingResultTypes(OpBuilder &b, Operation *op) {
@@ -74,7 +81,8 @@ using namespace mlir;
 // }
 
 // namespace {
-// struct ConvertAnyElementwiseMappableOpOnRankedTensors : public RewritePattern {
+// struct ConvertAnyElementwiseMappableOpOnRankedTensors : public RewritePattern
+// {
 //   ConvertAnyElementwiseMappableOpOnRankedTensors(MLIRContext *context)
 //       : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
 //   LogicalResult matchAndRewrite(Operation *op,
@@ -120,17 +128,37 @@ using namespace mlir;
 // }
 
 namespace {
-class AvocadoPass
-    : public impl::AvocadoBase<
-          AvocadoPass> {
+class AvocadoPass : public impl::AvocadoBase<AvocadoPass> {
+
+  bool canScheduleOn(RegisteredOperationName opInfo) const override {
+    return opInfo.hasInterface<FunctionOpInterface>();
+  }
 
   void runOnOperation() final {
     auto *func = getOperation();
     auto *context = &getContext();
     ConversionTarget target(*context);
     RewritePatternSet patterns(context);
-    llvm::errs() << "found an operation called "<< func->getName() <<"\n";
+    // llvm::errs() << "found an operation called ";//<< func->getName() <<"\n";
+    // llvm::errs() << "found an operation called " << func->getName() <<"and id
+    // with attrs "<< func->getAttrDictionary() <<"\n";
 
+    // llvm::errs() << "HOODLE" << func->getAttr("sym_name") << "\n";//
+    // func->getOperand(0).printAsOperand( llvm::errs()); llvm::errs() <<"\n";
+    // func->getAttr("sym_name")
+    // std::stringstream ss;
+    // func->getAttr("sym_name").printStripped(ss);
+    // std::string name = ss.str();
+    // std::string main_func = "main";
+    // std::string matmul_func = "matmul104x04";
+
+    // if (name.compare(main_func) != 0) {
+    //   ++mainFunc;
+    // } else if (name.compare(matmul_func) != 0) {
+    //   ++matmul104x104Func;
+    // } else {
+    //   ++otherFuncNames;
+    }
     // mlir::linalg::populateElementwiseToLinalgConversionPatterns(patterns);
     // target.markUnknownOpDynamicallyLegal([](Operation *op) {
     //   return !isElementwiseMappableOpOnRankedTensors(op);
