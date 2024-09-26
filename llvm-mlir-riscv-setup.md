@@ -2,46 +2,50 @@
 
 Official LLVM Setup Guide [here](https://llvm.org/docs/GettingStarted.html#getting-the-source-code-and-building-llvm)
 
-## 0. miscellaneous
-
-- Change clock to 12h time on fedora: `gsettings set org.gnome.desktop.interface clock-format '12h'`
-
-- Install valgrind on fedora: `sudo yum -y install valgrind`
-
-- [Install new fonts on fedora](https://docs.fedoraproject.org/en-US/quick-docs/fonts/)
-
-- Ubuntu Terminal [Font](https://design.ubuntu.com/font) and [Colors](https://oatcookies.neocities.org/ubuntu-terminal-colors)
-
-## 1. Fork and then Clone LLVM
+## 0. Install ninja and lld
 
 1. Get ninja, instructions here: [https://ninja-build.org/](https://ninja-build.org/)
+   On ubuntu, get ninja by doing:
 
-On ubuntu, get ninja by doing:
+   ```
+   apt-get install ninja-build
+   ```
 
-```
-apt-get install ninja-build
-```
+   On fedora, do:
+   ```
+   dnf install ninja-build
+   ```
 
-On fedora, do:
+2. Install the linker `lld`
+   On fedora, do: `sudo dnf install lld`
 
- ```dnf install ninja-build```
+   On Ubuntu, do: `sudo apt install lld`
 
-2. make a fork of the repo https://github.com/llvm/llvm-project.git on gihub.
+## 1. Fork, Clone, and build LLVM
 
-3. clone the fork:
+2. make a fork of the repo https://github.com/llvm/llvm-project.git on github.
+
+3. clone the fork (replace the URL in the clone command with the URL to your own forked repo):
    `git clone https://github.com/EmilySillars/llvm-project-pistachio.git`
 
 4. Build LLVM and Clang:
 
-`cd llvm-project-pistachio`
+   Enter the top-level directory of your clone repo:
+   ```
+   cd llvm-project-pistachio
+   ```
 
-```
-cmake -S llvm -B build -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang;lld" -DCMAKE_BUILD_TYPE=Debug -DLLVM_USE_LINKER=lld -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_PARALLEL_LINK_JOBS=2
-```
+   Configure your build with cmake:
+   ```
+   cmake -S llvm -B build -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang;lld" -DCMAKE_BUILD_TYPE=Release -DLLVM_USE_LINKER=lld -DCMAKE_CXX_COMPILER=/usr/bin/clang++ -DLLVM_PARALLEL_LINK_JOBS=2
+   ```
 
-```
-ninja -j 20
-```
+   Build using ninja, passing the `-j` option the number of cores on your computer. (you can use `lscpu` to find out how many CPUs you have)
+   ```
+   ninja -j 20
+   ```
+
+   ^^ replace `20` with the number of CPUs your computer has.
 
 ## 2. Build LLVM with MLIR and RISC-V target
 
@@ -239,7 +243,7 @@ For me the command is: `MLIR_DIR=$(pwd)/llvm-project-pistachio/build-riscv/lib/c
    `cmake --build . --target check-onnx-lit`
    
 
-### Running out of space?
+### 5. Running out of space?
 
 When I run `cmake --build .` , my computer runs out of space and kills the process. I tried temporarily increasing my swap space... Source: *https://www.techotopia.com/index.php/Adding_and_Managing_Fedora_Swap_Space*, also https://wiki.archlinux.org/title/Btrfs#Swap_file
 
@@ -264,9 +268,7 @@ deactivate using
 swapoff /newswap
 ```
 
-## 
-
-## Troubleshooting (Fedora)
+## 6. Troubleshooting (Fedora)
 
 1. Error: `bash: cmake: command not found...`
    Solution: `dnf install cmake`
@@ -530,7 +532,7 @@ swapoff /newswap
    
    Solution: `pip install onnx`
 
-## Troubleshooting (Ubuntu):
+## 7. Troubleshooting (Ubuntu):
 
 1. Error: 
 
@@ -729,8 +731,11 @@ to the compiler, or to the compiler name if it is in the PATH.
 
 ```
 
-  
-
 Solution: `sudo apt install clang`
 
- 
+7. ```
+   cc: error: unrecognized command-line option ‘-Wcovered-switch-default’; did you mean ‘-Wno-switch-default’?
+   cc: error: unrecognized command-line option ‘-Wstring-conversion’; did you mean ‘-Wsign-conversion’?
+   ```
+
+Solution: remove the flag `DCMAKE_CXX_COMPILER=/usr/bin/clang++` from your cmake command!
