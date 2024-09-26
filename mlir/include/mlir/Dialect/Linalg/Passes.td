@@ -11,22 +11,17 @@
 
 include "mlir/Pass/PassBase.td"
 
-//    InterfacePass<"iree-linalg-ext-convert-conv2d-to-im2col-op", "mlir::FunctionOpInterface"> {
-
-
 def Avocado : Pass<"avocado", ""> {
   let summary = "A 'hello world' pass at the linalg level";
   let description = [{
-    Counts all instructions and prints function names.
+    Counts all instructions and function names.
   }];
   let constructor = "mlir::createAvocadoPass()";
   let statistics = [
-    Statistic<"otherFuncNames", "other-func-names",
-              "how many other function names did I find?">,
-    Statistic<"matmul104x104Func", "matmul104x104-func",
-              "is there a function called matmul104x104?">,
-    Statistic<"mainFunc", "main-func",
-              "is there a main function?">,
+    Statistic<"funcCount", "func-count",
+              "how many functions are in the source file?">,
+    Statistic<"insCount", "ins-func",
+              "how many instructions are in the source file?">,
   ];
   let dependentDialects = ["linalg::LinalgDialect"];
 }

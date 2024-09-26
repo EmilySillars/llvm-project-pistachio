@@ -1,10 +1,10 @@
 # Avocado: add a "Hello World" Pass to mlir-opt
 
-This hello world pass will count all the instructions in the input program, and print out their names.
+This hello world pass will count all functions and instructions in the input program.
 
 ## Reference Files
 
-For adding a new pass
+For adding a new pass, look at
 
 - mlir/include/mlir/Dialect/Linalg/Passes.h
 - mlir/include/mlir/Dialect/Linalg/Passes.td
@@ -62,16 +62,6 @@ sh run-w-mlir-cpu-runner.sh matmul104x104 main
 ```
 sh run-thru-avocado.sh matmul104x104
 ```
-
-Before adding `mlir::FunctionOpInterface`, output was
-
-```
-[hoppip@inf-205-98 add-dummy-pass]$ sh run-thru-avocado.sh matmul104x104.mlir 
-found an operation calledbuiltin.module
-```
-
-Afterward, output is
-
 
 ## Modifications needed to add the pass
 
