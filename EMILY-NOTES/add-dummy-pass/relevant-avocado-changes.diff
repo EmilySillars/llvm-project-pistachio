@@ -1,0 +1,122 @@
+diff --git a/EMILY-NOTES/add-dummy-pass/run-thru-avocado.sh b/EMILY-NOTES/add-dummy-pass/run-thru-avocado.sh
+deleted file mode 100644
+index 0cc7e58c9918..000000000000
+--- a/EMILY-NOTES/add-dummy-pass/run-thru-avocado.sh
++++ /dev/null
+@@ -1,7 +0,0 @@
+-#!/bin/sh
+-basename=`basename $1 | sed 's/[.][^.]*$//'`
+-#funcname=`basename $2 | sed 's/[.][^.]*$//'`
+-
+-mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list $basename.mlir 2> out/$basename-avocado.out >/dev/null
+-
+-cat out/$basename-avocado.out
+\ No newline at end of file
+diff --git a/mlir/include/mlir/Dialect/Linalg/Passes.h b/mlir/include/mlir/Dialect/Linalg/Passes.h
+index fb10ab5b43ed..5f46affe592a 100644
+--- a/mlir/include/mlir/Dialect/Linalg/Passes.h
++++ b/mlir/include/mlir/Dialect/Linalg/Passes.h
+@@ -29,9 +29,6 @@ struct OneShotBufferizationOptions;
+ #define GEN_PASS_DECL
+ #include "mlir/Dialect/Linalg/Passes.h.inc"
+ 
+-/// Create a "hello world" pass at the linalg level
+-std::unique_ptr<Pass> createAvocadoPass();
+-
+ std::unique_ptr<Pass> createConvertElementwiseToLinalgPass();
+ 
+ std::unique_ptr<Pass> createLinalgFoldUnitExtentDimsPass();
+diff --git a/mlir/include/mlir/Dialect/Linalg/Passes.td b/mlir/include/mlir/Dialect/Linalg/Passes.td
+index 2f9b0d6d7029..cca50e21d5ce 100644
+--- a/mlir/include/mlir/Dialect/Linalg/Passes.td
++++ b/mlir/include/mlir/Dialect/Linalg/Passes.td
+@@ -11,22 +11,6 @@
+ 
+ include "mlir/Pass/PassBase.td"
+ 
+-def Avocado : Pass<"avocado", ""> {
+-  let summary = "A 'hello world' pass at the linalg level";
+-  let description = [{
+-    Counts all instructions and function names.
+-  }];
+-  let constructor = "mlir::createAvocadoPass()";
+-  let statistics = [
+-    Statistic<"funcCount", "func-count",
+-              "how many functions are in the source file?">,
+-    Statistic<"insCount", "ins-func",
+-              "how many instructions are in the source file?">,
+-  ];
+-  let dependentDialects = ["linalg::LinalgDialect"];
+-}
+-
+-
+ def ConvertElementwiseToLinalg : Pass<"convert-elementwise-to-linalg", ""> {
+   let summary = "Convert ElementwiseMappable ops to linalg";
+   let description = [{
+diff --git a/mlir/lib/Dialect/Linalg/Transforms/Avocado.cpp b/mlir/lib/Dialect/Linalg/Transforms/Avocado.cpp
+deleted file mode 100644
+index 257a1f4beb59..000000000000
+--- a/mlir/lib/Dialect/Linalg/Transforms/Avocado.cpp
++++ /dev/null
+@@ -1,49 +0,0 @@
+-//===- Avocado.cpp - dummy hello world pass for mlir-opt ------===//
+-//
+-// I based this pass on the file 
+-// mlir/lib/Dialect/Linalg/Transforms/ElementwiseToLinalg.cpp
+-//
+-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+-// See https://llvm.org/LICENSE.txt for license information.
+-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#include "mlir/Dialect/Arith/Utils/Utils.h"
+-#include "mlir/Dialect/Linalg/IR/Linalg.h"
+-#include "mlir/Dialect/Linalg/Passes.h"
+-#include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+-#include "mlir/Dialect/Linalg/Utils/Utils.h"
+-#include "mlir/IR/Attributes.h"
+-#include "mlir/Interfaces/FunctionInterfaces.h"
+-#include "mlir/Transforms/DialectConversion.h"
+-#include <string> // for string compare
+-
+-namespace mlir {
+-#define GEN_PASS_DEF_AVOCADO
+-#include "mlir/Dialect/Linalg/Passes.h.inc"
+-} // namespace mlir
+-
+-using namespace mlir;
+-
+-namespace {
+-class AvocadoPass : public impl::AvocadoBase<AvocadoPass> {
+-
+-  bool canScheduleOn(RegisteredOperationName opInfo) const override {
+-    return opInfo.hasInterface<FunctionOpInterface>();
+-  }
+-
+-  void runOnOperation() final {
+-    auto *func = getOperation();
+-    // auto *context = &getContext();
+-    // ConversionTarget target(*context);
+-    // RewritePatternSet patterns(context);
+-    llvm::errs() << "["<< func->getAttr("sym_name") <<"]"<<"\n";
+-    ++funcCount;
+-  }
+-};
+-} // namespace
+-
+-std::unique_ptr<Pass> mlir::createAvocadoPass() {
+-  return std::make_unique<AvocadoPass>();
+-}
+diff --git a/mlir/lib/Dialect/Linalg/Transforms/CMakeLists.txt b/mlir/lib/Dialect/Linalg/Transforms/CMakeLists.txt
+index f8a7010b67a4..4f47e3b87184 100644
+--- a/mlir/lib/Dialect/Linalg/Transforms/CMakeLists.txt
++++ b/mlir/lib/Dialect/Linalg/Transforms/CMakeLists.txt
+@@ -11,7 +11,6 @@ add_mlir_dialect_library(MLIRLinalgTransforms
+   DropUnitDims.cpp
+   ElementwiseOpFusion.cpp
+   ElementwiseToLinalg.cpp
+-  Avocado.cpp
+   EliminateEmptyTensors.cpp
+   EraseUnusedOperandsAndResults.cpp
+   FusePadOpWithLinalgProducer.cpp
