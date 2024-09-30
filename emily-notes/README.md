@@ -179,43 +179,32 @@ Or another pass?
 mlir-opt --test-linalg-transform-patterns matmul104x104.mlir
 ```
 
-
-
 ### Affine tiling?
-
-```
-cd emily-notes
-
-sh tile-matmul104x104.sh
-```
-
-```
-$ for lib in  build/lib/* ; do nm $lib 2>/dev/null  | grep printNewline && echo "Found in $lib" ; done
-
-```
-
-
-
-```mlir
-#affine_map42 = affine_map<(d0, d1)[s0] -> (d0, d0 + d1 + s0 floordiv 2)>
-
-// Use an affine mapping definition in an alloc operation, binding the
-// SSA value %N to the symbol s0.
-%a = memref.alloc()[%N] : memref<4x4xf32, #affine_map42>
-```
 
 ### Scf tiling?
 
 ## Examples
 
-1. Run regular matrix multiplication
-   ```
-   sh linalg-run-w-mlir-cpu-runner.sh matmul104x104.mlir main out
+0. ```
+   cd emily-notes
    ```
 
-   
+1. Run regular linalg dialect matrix multiplication:
 
-2. 
+   ```
+   sh run-w-mlir-cpu-runner.sh -linalg matmul104x104.mlir main out
+   ```
+
+2. Run regular affine dialect matrix multiplication:
+   ```
+   sh run-w-mlir-cpu-runner.sh -affine matmul104x104-as-affine.mlir main out
+   ```
+
+3. Try tiling with `--affine-loop-tile`:
+
+   ```
+   sh tile-w-affine.sh matmul104x104.mlir main out "cache-size=512"
+   ```
 
 ## Troubleshooting
 
