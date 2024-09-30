@@ -3,64 +3,74 @@
 # normal run
 # ../iree-build/tools/iree-opt iree-fork/matmul104x104.mlir
 
-
-mlir-opt \
---pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops))" \
-./matmul104x104.mlir \
--o ./out/matmul104x104-before-tile.mlir
-
-mlir-opt \
---linalg-generalize-named-ops --test-linalg-transform-patterns=test-patterns \
-./matmul104x104.mlir \
--o ./out/matmul104x104-after-tile.mlir
-
-diff ./out/matmul104x104-before-tile.mlir ./out/matmul104x104-after-tile.mlir
-
-# -test-loop-fusion -test-loop-fusion-transformation
-
-mlir-opt \
---pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops))" \
-./matmul104x104.mlir \
--o ./out/matmul104x104-before-tile2.mlir
-
-mlir-opt \
---allow-unregistered-dialect --linalg-generalize-named-ops --test-loop-fusion --test-loop-fusion-transformation \
-./matmul104x104.mlir \
--o ./out/matmul104x104-after-tile2.mlir
-
-diff ./out/matmul104x104-before-tile2.mlir ./out/matmul104x104-after-tile2.mlir
-
-# # ../iree-build/tools/iree-opt --iree-codegen-gpu-apply-tiling-level iree-fork/matmul104x104.mlir
-
-# # ../iree-build/tools/iree-opt --iree-codegen-gpu-generalize-named-ops \
-# # --iree-codegen-gpu-tile-reduction  iree-fork/matmul104x104.mlir \
-# # -o iree-fork/out/matmul104x104-before-tile.mlir
-
-# ../iree-build/tools/iree-opt \
+# --test-linalg-transform-patterns=test-patterns
+# mlir-opt \
 # --pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops))" \
-# iree-fork/matmul104x104.mlir \
-# -o iree-fork/out/matmul104x104-before-tile2.mlir
+# ./matmul104x104.mlir \
+# -o ./out/matmul104x104-before-tile.mlir
 
-# ../iree-build/tools/iree-opt \
-# --pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops,iree-codegen-gpu-tile-reduction))" \
-# iree-fork/matmul104x104.mlir \
-# -o iree-fork/out/matmul104x104-after-tile2.mlir
+# mlir-opt \
+# --linalg-generalize-named-ops --test-linalg-transform-patterns=test-patterns \
+# ./matmul104x104.mlir \
+# -o ./out/matmul104x104-after-tile.mlir
 
-# diff iree-fork/out/matmul104x104-before-tile2.mlir iree-fork/out/matmul104x104-after-tile2.mlir
+# diff ./out/matmul104x104-before-tile.mlir ./out/matmul104x104-after-tile.mlir
 
-
-# ../iree-build/tools/iree-opt \
+# # -test-loop-fusion -test-loop-fusion-transformation
+# mlir-opt \
 # --pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops))" \
-# iree-fork/matmul104x104.mlir \
-# -o iree-fork/out/matmul104x104-before-tile3.mlir
+# ./matmul104x104.mlir \
+# -o ./out/matmul104x104-before-tile2.mlir
 
-# ../iree-build/tools/iree-opt \
-# --pass-pipeline="builtin.module(func.func(linalg-generalize-named-ops,iree-codegen-gpu-tensor-tile))" \
-# iree-fork/matmul104x104.mlir \
-# -o iree-fork/out/matmul104x104-after-tile3.mlir
+# mlir-opt \
+# --allow-unregistered-dialect --linalg-generalize-named-ops --test-loop-fusion --test-loop-fusion-transformation \
+# ./matmul104x104.mlir \
+# -o ./out/matmul104x104-after-tile2.mlir
 
-# diff iree-fork/out/matmul104x104-before-tile3.mlir iree-fork/out/matmul104x104-after-tile3.mlir
-#  --iree-codegen-gpu-generalize-named-ops                                -   Convert named Linalg ops to linalg.generic ops
-#       --iree-codegen-gpu-tensor-tile                                         -   Pass to tile tensor (linalg) ops within a GPU workgroup
-#       --iree-codegen-gpu-tile-reduction 
-# --iree-codegen-gpu-tensor-tile
+# diff ./out/matmul104x104-before-tile2.mlir ./out/matmul104x104-after-tile2.mlir
+
+# test affine dialect tiling
+mlir-opt \
+--linalg-generalize-named-ops --one-shot-bufferize='bufferize-function-boundaries' --convert-vector-to-scf --convert-linalg-to-affine-loops \
+./matmul104x104.mlir \
+-o ./out/matmul104x104-before-tile3.mlir
+
+mlir-opt \
+--linalg-generalize-named-ops --one-shot-bufferize='bufferize-function-boundaries' --convert-vector-to-scf --convert-linalg-to-affine-loops --affine-loop-tile \
+./matmul104x104.mlir \
+-o ./out/matmul104x104-after-tile3.mlir
+
+diff ./out/matmul104x104-before-tile3.mlir ./out/matmul104x104-after-tile3.mlir
+
+sh affine-run-w-mlir-cpu-runner.sh matmul104x104-before-tile3.mlir main out
+
+sh affine-run-w-mlir-cpu-runner.sh matmul104x104-after-tile3.mlir main out
+
+
+
+
+# try to test affine dialect tiling (again)
+# mlir-opt \
+# --convert-linalg-to-affine-loops \
+# ./matmul104x104-no-main.mlir \
+# -o ./out/matmul104x104-no-main-before-tile3.mlir
+
+# mlir-opt \
+# --convert-linalg-to-affine-loops --affine-loop-tile \
+# ./matmul104x104-no-main.mlir \
+# -o ./out/matmul104x104-no-main-after-tile3.mlir
+
+# diff ./out/matmul104x104-no-main-before-tile3.mlir ./out/matmul104x104-no-main-after-tile3.mlir
+
+
+# mlir-opt \
+# --one-shot-bufferize --convert-linalg-to-affine-loops \
+# ./matmul104x104-no-main.mlir \
+# -o ./out/matmul104x104-no-main-before-tile4.mlir
+
+# mlir-opt \
+# --one-shot-bufferize --convert-linalg-to-affine-loops --affine-loop-tile \
+# ./matmul104x104-no-main.mlir \
+# -o ./out/matmul104x104-no-main-after-tile4.mlir
+
+# diff ./out/matmul104x104-no-main-before-tile4.mlir ./out/matmul104x104-no-main-after-tile4.mlir

@@ -183,7 +183,53 @@ mlir-opt --test-linalg-transform-patterns matmul104x104.mlir
 
 ### Affine tiling?
 
+```
+cd emily-notes
+
+sh tile-matmul104x104.sh
+```
+
+```
+$ for lib in  build/lib/* ; do nm $lib 2>/dev/null  | grep printNewline && echo "Found in $lib" ; done
+
+```
+
+
+
+```mlir
+#affine_map42 = affine_map<(d0, d1)[s0] -> (d0, d0 + d1 + s0 floordiv 2)>
+
+// Use an affine mapping definition in an alloc operation, binding the
+// SSA value %N to the symbol s0.
+%a = memref.alloc()[%N] : memref<4x4xf32, #affine_map42>
+```
+
 ### Scf tiling?
 
 ## Examples
 
+1. Run regular matrix multiplication
+   ```
+   sh linalg-run-w-mlir-cpu-runner.sh matmul104x104.mlir main out
+   ```
+
+   
+
+2. 
+
+## Troubleshooting
+
+Error:
+
+```
+JIT session error: Symbols not found: [ _mlir_memref_to_llvm_alloc ]
+Error: Failed to materialize symbols: { (main, { main, _mlir_main }) }
+```
+
+Solution?
+
+```
+for lib in  build-riscv/lib/* ; do nm $lib 2>/dev/null  | grep _mlir_memref_to_llvm_alloc && echo "Found in $lib" ; done
+```
+
+Actual solution: remove `use-generic-functions` from the  `--finalize-memref-to-llvm='use-generic-functions index-bitwidth=32'` pass, OR link in your own C code definition of this function.
