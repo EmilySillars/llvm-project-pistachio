@@ -108,6 +108,47 @@
          --tosa-to-linalg-pipeline                              -   The default pipeline for converting TOSA operators to the equivalent operations using the tensor operations in LinAlg as well as LinAlg named operations.
    ```
 
+4. `mlir-opt --help | grep transform`
+
+   ```
+         --affine-loop-normalize                                 -   Apply normalization transformations to affine loop-like ops
+         --test-create-vector-broadcast                          -   Test optimization transformations for transfer ops
+         --test-linalg-greedy-fusion                             -   Test Linalg fusion by applying a greedy test transformation.
+         --test-linalg-transform-patterns                        -   Test Linalg transformation patterns by applying them greedily.
+           --test-generalize-pad-tensor                          - Test transform pad tensor by copying with generic ops
+           --test-generalize-tensor-pack                         - Test transform that generalizes pack ops into a sequence of tensor and Linalg ops
+           --test-generalize-tensor-unpack                       - Test transform that generalizes unpack ops into a sequence of tensor and Linalg ops
+         --test-loop-unrolling                                   -   Tests loop unrolling transformation
+         --test-multi-buffering                                  -   Test multi buffering transformation
+         --test-scf-parallel-loop-collapsing                     -   Test parallel loops collapsing transformation
+           --annotate                                            - Annote operations during loop pipelining transformation
+         --test-tensor-transform-patterns                        -   Test Tensor transformation patterns by applying them greedily.
+           --test-tracking-listener                              - Test tensor TrackingListener for the transform dialect
+           --tile-consumer-and-fuse-producer-using-scf-for       - Test tile and fuse transformation using TilingInterface with scf.for operations
+           --tile-consumer-fuse-and-yield-producer-using-scf-for - Test tile and fuse transformation while yielding fused producer replacements using TilingInterface with scf.for operations
+         --test-transform-dialect-erase-schedule                 -   erase transform dialect schedule from the IR
+         --test-transform-dialect-interpreter                    -   apply transform dialect operations one by one
+           --debug-payload-root-tag=<string>                     - Select the operation with 'transform.target_tag' attribute having the given value as payload IR root. If empty select the pass anchor operation as the payload IR root.
+           --debug-transform-root-tag=<string>                   - Select the operation with 'transform.target_tag' attribute having the given value as container IR for top-level transform ops. This allows user control on what transformation to apply. If empty, select the container of the top-level transform op.
+           --enable-expensive-checks                             - perform expensive checks to better report errors in the transform IR
+           --enforce-single-top-level-transform-op               - Ensure that only a single top-level transform op is present in the IR.
+           --test-module-generation                              - test the generation of the transform module during pass initialization, overridden by parsing
+           --transform-file-name=<string>                        - Optional filename containing a transform dialect specification to apply. If left empty, the IR is assumed to contain one top-level transform dialect operation somewhere in the module.
+           --transform-library-paths=<string>                    - Optional paths to files with modules that should be merged into the transform module to provide the definitions of external named sequences.
+         --test-vector-transferop-opt                            -   Test optimization transformations for transfer ops
+         --test-vector-warp-distribute                           -   Test vector warp distribute transformation and lowering patterns
+         --transform-dialect-check-uses                          -   warn about potential use-after-free in the transform dialect
+         --transform-infer-effects                               -   infer transform side effects for symbols
+         --transform-interpreter                                 -   transform dialect interpreter
+           --debug-payload-root-tag=<string>                     - Select the operation with 'transform.target_tag' attribute having the given value as payload IR root. If empty select the pass anchor operation as the payload IR root.
+         --transform-preload-library                             -   preload transform dialect library
+           --transform-library-paths=<string>                    - Optional paths to files with modules that should be merged into the transform module to provide the definitions of external named sequences.
+     --verify-each                                               - Run the verifier after each transformation pass
+     --test-loop-fusion-transformation                           - Enable testing of loop fusion transformation
+   ```
+
+Looks like linalg level tiling is hiding inside the transform dialect passes!!
+
 ### linalg-tiling?
 
 Files of interest:
@@ -119,6 +160,26 @@ Files of interest:
 ```
 mlir-opt --linalg-tiling matmul104x104.mlir
 ```
+
+Let's try regular:
+
+```
+mlir-opt matmul104x104.mlir
+```
+
+Now let's try with a pass:
+
+```
+mlir-opt --test-loop-fusion-transformation  matmul104x104.mlir
+```
+
+Or another pass?
+
+```
+mlir-opt --test-linalg-transform-patterns matmul104x104.mlir
+```
+
+
 
 ### Affine tiling?
 
