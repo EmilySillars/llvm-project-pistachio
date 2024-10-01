@@ -21,7 +21,7 @@ else
     > $OUT/$basename-before-tiling.mlir
 
     mlir-opt $OUT/$basename-before-tiling.mlir \
-    --affine-loop-tile=$options \
+    --affine-loop-tile=$options --debug \
     > $OUT/$basename-after-tiling.mlir
 
     # did anything happen?
@@ -31,7 +31,7 @@ else
     sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-before-tiling.mlir main out >> $OUT/$basename.log 2>&1
     sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-after-tiling.mlir main out >> $OUT/$basename.log 2>&1
 
-    cat $OUT/$basename-after-tiling.mlir
+   # cat $OUT/$basename-after-tiling.mlir
 
     # # try tiling without intermediate files
     # mlir-opt $1 \

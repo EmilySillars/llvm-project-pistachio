@@ -179,7 +179,126 @@ Or another pass?
 mlir-opt --test-linalg-transform-patterns matmul104x104.mlir
 ```
 
-### Affine tiling?
+### Affine tiling? Yes!
+
+```
+-affine-loop-tile ¶
+
+Tile affine loop nests
+Options ¶
+
+-cache-size : Set size of cache to tile for in KiB (default: 512)
+-separate   : Separate full and partial tiles (default: false)
+-tile-size  : Use this tile size for all loops
+-tile-sizes : List of tile sizes for each perfect nest (overridden by -tile-size)
+```
+
+**Can I recreate tiling from [here](https://github.com/EmilySillars/Quidditch-zigzag/blob/tiling/runtime/tests/tiledMatmul12/README.md) using the affine tiling pass?**
+
+Let's try it...
+
+![](pics/host-acc-divide.png)
+
+```
+// recall:  O[a][b]+=I[a][c]*W[c][b]
+===========================================================================================
+Temporal Loops                     I                  O                  W                  
+===========================================================================================
+for c2 in [0, 4):                  l1                 l3                 l3                  C2 = 4
+-------------------------------------------------------------------------------------------
+  for c1 in [0, 2):                l1                 l3                 l1                  C1 = 2
+-------------------------------------------------------------------------------------------
+    for b1 in [0, 13):             l1                 l3                 l1                  B1 = 13
+-------------------------------------------------------------------------------------------
+      for a1 in [0, 13):           l1                 l3                 rf_x1_thru_x31      A1 = 13
+-------------------------------------------------------------------------------------------
+        for b0 in [0, 8):          rf_x1_thru_x31     l1                 rf_x1_thru_x31      B0 = 8
+-------------------------------------------------------------------------------------------
+          for c0 in [0, 13):       rf_x1_thru_x31     rf_x1_thru_x31     rf_x1_thru_x31      C0 = 13
+-------------------------------------------------------------------------------------------
+===========================================================================================
+Spatial Loops                                                                              
+===========================================================================================
+            parfor a0 in [0, 8):                                                             A0 = 8    
+-------------------------------------------------------------------------------------------
+```
+
+Since we have loop bounds `C2, C1, B1, A1 = 4, 2, 13, 13,` tiles should be `104/4, 104/4/2, 104/13, 104/13 = 26, 13, 8, 8` respectively.
+
+```
+c2_tile_sz = 26
+c1_tile_sz = 13
+b1_tile_sz = 8
+a1_tile_sz = 8
+```
+
+BUT since the original matmul places the loops in order A, B, C, I need to pass my tile sizes in the order A, B, C:
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=8,8,26,1,1,13"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 8)>
+#map2 = affine_map<(d0) -> (d0 + 26)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 8 {      // a1
+      affine.for %arg4 = 0 to 104 step 8 {    // b1
+        affine.for %arg5 = 0 to 104 step 26 { // c2
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg4) to #map1(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map2(%arg5) {
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+}
+```
+
+This does NOT do the second level of tiling in the C dimension. Can I do that by running the pass twice?
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=8,8,26" > matmul104x104-tiled-once.mlir;
+sh tile-w-affine.sh matmul104x104-tiled-once.mlir main out "tile-sizes=1,1,1,1,1,13" > matmul104x104-tiled-twice.mlir;
+diff matmul104x104-tiled-once.mlir matmul104x104-tiled-twice.mlir
+```
+
+No change.
+
+What about making the second pass use a tile size of 13 specifically?
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=8,8,26" > matmul104x104-tiled-once.mlir;
+sh tile-w-affine.sh matmul104x104-tiled-once.mlir main out "tile-size=13" > matmul104x104-tiled-twice.mlir;
+diff matmul104x104-tiled-once.mlir matmul104x104-tiled-twice.mlir
+```
+
+No change.
+
+What about pretending the first 3 loops are considered "perfectly nested"?
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=8,8,26" > matmul104x104-tiled-once.mlir;
+sh tile-w-affine.sh matmul104x104-tiled-once.mlir main out "tile-sizes=1,1,13" > matmul104x104-tiled-twice.mlir;
+diff matmul104x104-tiled-once.mlir matmul104x104-tiled-twice.mlir
+```
+
+No change.
 
 ### Scf tiling?
 
@@ -222,3 +341,213 @@ for lib in  build-riscv/lib/* ; do nm $lib 2>/dev/null  | grep _mlir_memref_to_l
 ```
 
 Actual solution: remove `use-generic-functions` from the  `--finalize-memref-to-llvm='use-generic-functions index-bitwidth=32'` pass, OR link in your own C code definition of this function.
+
+## Old notes - delete later!
+
+
+
+Since we have loop bounds `4,2,13,13,` tiles should be `104/4, 104/4/2, 104/13, 104/13 = 26, 12, 8, 8` respectively.
+
+BUT since the original matmul places the loops in order A, B, C, I need to pass my tile sizes in the order A, B, C.
+
+Therefore  
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=13,13,4,1,1,2"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 13)>
+#map2 = affine_map<(d0) -> (d0 + 4)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 13 {
+      affine.for %arg4 = 0 to 104 step 13 {
+        affine.for %arg5 = 0 to 104 step 4 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {     // a = %arg3 + 13
+            affine.for %arg7 = #map(%arg4) to #map1(%arg4) {   // b = %arg4 + 13
+              affine.for %arg8 = #map(%arg5) to #map2(%arg5) { // c = %arg5 + 4
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+}
+```
+
+
+
+Maybe I need to the list the tile sizes by alternating which loop is tiled, though. Something like `C2, B1, A1, C1 = 4, 13, 13, 2`
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=4,13,13,2"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 4)>
+#map2 = affine_map<(d0) -> (d0 + 13)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 4 {
+      affine.for %arg4 = 0 to 104 step 13 {
+        affine.for %arg5 = 0 to 104 step 13 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg4) to #map2(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map2(%arg5) {
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+```
+
+What if I try this?
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=4,13,13,2,1,1"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 4)>
+#map2 = affine_map<(d0) -> (d0 + 13)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 4 {
+      affine.for %arg4 = 0 to 104 step 13 {
+        affine.for %arg5 = 0 to 104 step 13 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg4) to #map2(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map2(%arg5) {
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+```
+
+
+
+This isn't quite right either...
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=26,12,8,8"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 26)>
+#map2 = affine_map<(d0) -> (d0 + 12, 104)>
+#map3 = affine_map<(d0) -> (d0 + 8)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 26 {
+      affine.for %arg4 = 0 to 104 step 12 {
+        affine.for %arg5 = 0 to 104 step 8 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg4) to min #map2(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map3(%arg5) {
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+```
+
+
+
+Not quite right:
+
+```
+sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=4,2,13,13"
+```
+
+```
+#map = affine_map<(d0) -> (d0)>
+#map1 = affine_map<(d0) -> (d0 + 4)>
+#map2 = affine_map<(d0) -> (d0 + 2)>
+#map3 = affine_map<(d0) -> (d0 + 13)>
+func.func @matmul104x104(
+%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 4 {
+      affine.for %arg4 = 0 to 104 step 2 {
+        affine.for %arg5 = 0 to 104 step 13 {
+          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
+            affine.for %arg7 = #map(%arg4) to #map2(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map3(%arg5) {
+                %0 = affine.load %arg0[%arg6, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %1 = affine.load %arg1[%arg8, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                %3 = arith.extsi %0 : i8 to i32
+                %4 = arith.extsi %1 : i8 to i32
+                %5 = arith.muli %3, %4 : i32
+                %6 = arith.addi %2, %5 : i32
+                affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+ }
+```
+
+
+
+### 
