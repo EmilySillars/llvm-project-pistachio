@@ -25,11 +25,13 @@ else
     > $OUT/$basename-after-tiling.mlir
 
     # did anything happen?
-    diff $OUT/$basename-before-tiling.mlir $OUT/$basename-after-tiling.mlir
+    diff $OUT/$basename-before-tiling.mlir $OUT/$basename-after-tiling.mlir > $OUT/$basename.log 2>&1
 
     # do the tiled and untiled versions behave the same?
-    sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-before-tiling.mlir main out
-    sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-after-tiling.mlir main out 
+    sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-before-tiling.mlir main out >> $OUT/$basename.log 2>&1
+    sh run-w-mlir-cpu-runner.sh -affine $OUT/$basename-after-tiling.mlir main out >> $OUT/$basename.log 2>&1
+
+    cat $OUT/$basename-after-tiling.mlir
 
     # # try tiling without intermediate files
     # mlir-opt $1 \
