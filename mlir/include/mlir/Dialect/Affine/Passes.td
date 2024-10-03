@@ -199,6 +199,28 @@ def AffineLoopTiling : Pass<"affine-loop-tile", "func::FuncOp"> {
   ];
 }
 
+def AffineAdHocLoopTiling : Pass<"affine-ad-hoc-loop-tile", "func::FuncOp"> {
+  let summary = "Tile certain non-hyperrectangular loop nests";
+  let constructor = "mlir::affine::createAdHocLoopTilingPass()";
+  let options = [
+    Option<"cacheSizeInKiB", "cache-size", "uint64_t", /*default=*/"512",
+           "Set size of cache to tile for in KiB (default: 512)">,
+    Option<"separate", "separate", "bool", /*default=*/"false",
+           "Separate full and partial tiles (default: false)">,
+    Option<"tileSize", "tile-size", "unsigned", /*default=*/"",
+           "Use this tile size for all loops">,
+    ListOption<"tileSizes", "tile-sizes", "unsigned",
+               "List of tile sizes for each perfect nest "
+               "(overridden by -tile-size)">,
+    ListOption<"bounds", "bounds", "unsigned",
+               "List of bounds for each perfect nest "
+               "(expecting a list of lists)">,
+    ListOption<"order", "order", "unsigned",
+               "Order of loops in requested tiled version"
+               "(expecting a list of lists)">,
+  ];
+}
+
 def AffineLoopUnroll : Pass<"affine-loop-unroll", "func::FuncOp"> {
   let summary = "Unroll affine loops";
   let constructor = "mlir::affine::createLoopUnrollPass()";

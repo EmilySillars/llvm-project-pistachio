@@ -91,6 +91,12 @@ createLoopTilingPass(uint64_t cacheSizeBytes);
 /// Overload relying on pass options for initialization.
 std::unique_ptr<OperationPass<func::FuncOp>> createLoopTilingPass();
 
+/// Creates a pass to tile certain non-hyperrectangular loop nests.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createAdHocLoopTilingPass(uint64_t cacheSizeBytes);
+/// Overload relying on pass options for initialization.
+std::unique_ptr<OperationPass<func::FuncOp>> createAdHocLoopTilingPass();
+
 /// Creates a loop unrolling pass with the provided parameters.
 /// 'getUnrollFactor' is a function callback for clients to supply a function
 /// that computes an unroll factor - the callback takes precedence over unroll

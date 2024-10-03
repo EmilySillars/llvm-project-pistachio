@@ -92,3 +92,9 @@ func.func @matmul104x104(
 
 ## III. Implementation
 
+I need to take in a list of lists! How to do this on command line? Currently only list of uints works...
+
+```
+mlir-opt --affine-ad-hoc-loop-tile=tile-sizes=8,8,26,1,1,13 matmul104x104-as-affine.mlir 
+```
+
