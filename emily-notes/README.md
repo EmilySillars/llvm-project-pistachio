@@ -11,7 +11,7 @@
    export MLIR_CPU_RUNNER_LIBS=/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so
    ```
 
-## Setup
+## I. Setup
 
 1. ```
    cd llvm-project-pistachio
@@ -42,7 +42,7 @@
    ninja -j 20
    ```
 
-## Investigation
+## II. Investigation
 
 1. `mlir-opt --help | tile`:
 
@@ -290,7 +290,7 @@ diff matmul104x104-tiled-once.mlir matmul104x104-tiled-twice.mlir
 
 No change.
 
-What about pretending the first 3 loops are considered "perfectly nested"?
+What about pretending only the first 3 loops are considered "perfectly nested"?
 
 ```
 sh tile-w-affine.sh matmul104x104.mlir main out "tile-sizes=8,8,26" > matmul104x104-tiled-once.mlir;
@@ -300,9 +300,18 @@ diff matmul104x104-tiled-once.mlir matmul104x104-tiled-twice.mlir
 
 No change.
 
-### Scf tiling?
+#### Non-hyperrectangular nests not supported for tiling!
 
-## Examples
+- Error message is from `checkIfHyperRectangular` in `LoopUtils.cpp`
+- which is called by `performPreTilingChecks` in `LoopUtils.cp`p
+- which is called by both `tilePerfectlyNestedParametric` and `tilePerfectlyNested` in `LoopUtils.cpp`
+- but since I am passing in tile sizes, it's `tilePerfectlyNested` being called by `LoopTiling::runOnOperation()` in `LoopTiling.cpp`
+
+What does it mean for a loop nest to be non-hyperrectangular?
+
+### scf tiling?
+
+## III. Examples
 
 0. ```
    cd emily-notes
@@ -324,6 +333,10 @@ No change.
    ```
    sh tile-w-affine.sh matmul104x104.mlir main out "cache-size=512"
    ```
+
+## IV. Ad-Hoc Affine Tiling Pass for non-hyper-rectangular loop nests
+
+Documentation on this pass [here](affine-ad-hoc-loop-tile.md)
 
 ## Troubleshooting
 
