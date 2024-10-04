@@ -27,11 +27,9 @@
 #include "mlir/IR/IRMapping.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/JSON.h" // to parse tiling scheme
+#include <fstream>             // to open tiling scheme file
 #include <optional>
-// #include <jsoncpp/json/json.h>
-#include "llvm/Support/JSON.h"
-// #include <json/value.h> // to parse tiling scheme
-#include <fstream> // to open tiling scheme file
 
 namespace mlir {
 namespace affine {
@@ -69,20 +67,20 @@ mlir::affine::createAdHocLoopTilingPass() {
 
 void AdHocLoopTiling::parseTilingScheme() {
   // we only want to read the requested tiling scheme once
-  std::ifstream ifs(this->tilingScheme);
-  std::stringstream ss;
-  ss << ifs.rdbuf();
+  // std::ifstream ifs(this->tilingScheme);
+  // std::stringstream ss;
+  // ss << ifs.rdbuf();
 
-  // auto strRef = StringRef(this->tilingScheme);
-  auto strRef = this->getArgument();
-  // Json::Value people;
-  // people_file >> people;
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                          << "inside the function `parseTilingScheme`\n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                          << "file name is  [ " << strRef << " ]\n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                          << "file contains... [ " << ss.str() << " ]\n");
+  // // auto strRef = StringRef(this->tilingScheme);
+  // auto strRef = this->getArgument();
+  // // Json::Value people;
+  // // people_file >> people;
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+  //                         << "inside the function `parseTilingScheme`\n");
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+  //                         << "file name is  [ " << strRef << " ]\n");
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+  //                         << "file contains... [ " << ss.str() << " ]\n");
 }
 
 LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
@@ -92,17 +90,37 @@ LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
   // Returns true if this StringRef has the given prefix and removes that
   // prefix.
   if (options.consume_front(StringRef("tiling-scheme="))) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] "
+               << "the filename is  [ " << options.data() << " ]\n");
+    std::ifstream ifs(options.data());
+    std::stringstream ss;
+    ss << ifs.rdbuf();
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                            << "the filename is  [ " << options << " ]\n");
+                            << "file contains... [ " << ss.str() << " ]\n");
+    StringRef contents = StringRef(ss.str());
+    // bool fromJSON(const Value &E, std::map<std::string, T> &Out, Path P) {
+    // Expected<Value> E = json::parse("[1, 2, null]");
+    ///   assert(E && E->kind() == Value::Array);
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "1  ]\n");
+    llvm::Expected<llvm::json::Value> E = llvm::json::parse(contents);
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "2  ]\n");
+    //EXPECT_TRUE(!!E);
+    llvm::json::Object *O = E->getAsObject();
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
+    llvm::json::Value * val = O->get(StringRef("bounds"));
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "4  ]\n");
+    // assert(val && val->kind() == llvm::json::Value::Array);
+    //Value *get(StringRef K)
+
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                            << "contents are of type [ " << val->kind() << " ]\n");
+
     return success();
 
   } else {
     return failure();
   }
-
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-  //                           << "the options are  [ " << options << " ]\n");
-  // return success();
 }
 
 void AdHocLoopTiling::runOnOperation() {

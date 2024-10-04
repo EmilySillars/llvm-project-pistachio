@@ -98,6 +98,31 @@ Now I take in a file name, and read that file to get the tiling scheme!
 clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep "\[affine-ad-hoc-loop-tile\]" && rm temp
 ````
 
+Need to resolve following error:
+
+```
+[affine-ad-hoc-loop-tile] the options are  [ tiling-scheme=zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] the filename is  [ zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] file contains... [ {
+    "bounds":[[13], [13], [4,2]],
+    "order":[[2,0], [2,1], [1,0], [0,0]]
+}
+   ]
+Expected<T> must be checked before access or destruction.
+Unchecked Expected<T> contained error:
+[1:0, byte=0]: Invalid UTF-8 sequencePLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace.
+```
+
+
+
+I need to parse the json file with something inside this file: 
+
+```
+#include "llvm/Support/JSON.h"
+```
+
+
+
 ## Old notes delete later
 
 I need to take in a list of lists! How to do this on command line? Currently only list of uints works...
