@@ -357,6 +357,11 @@ Actual solution: remove `use-generic-functions` from the  `--finalize-memref-to-
 
 ## Old notes - delete later!
 
+```
+clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep "the options are" && rm temp
+
+```
+
 
 
 Since we have loop bounds `4,2,13,13,` tiles should be `104/4, 104/4/2, 104/13, 104/13 = 26, 12, 8, 8` respectively.

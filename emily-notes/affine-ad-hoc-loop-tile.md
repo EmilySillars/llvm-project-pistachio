@@ -92,6 +92,14 @@ func.func @matmul104x104(
 
 ## III. Implementation
 
+Now I take in a file name, and read that file to get the tiling scheme!
+
+````
+clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep "\[affine-ad-hoc-loop-tile\]" && rm temp
+````
+
+## Old notes delete later
+
 I need to take in a list of lists! How to do this on command line? Currently only list of uints works...
 
 ```
