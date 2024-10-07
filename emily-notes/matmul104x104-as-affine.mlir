@@ -36,4 +36,3 @@ module {
   }
   func.func private @printMemrefI32(memref<*xi32>)
 }
-

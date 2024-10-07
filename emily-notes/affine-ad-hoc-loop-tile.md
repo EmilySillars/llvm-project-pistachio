@@ -94,6 +94,12 @@ func.func @matmul104x104(
 
 Now I take in a file name, and read that file to get the tiling scheme!
 
+```
+clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | head -n -38 && rm temp
+```
+
+
+
 ````
 clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep "\[affine-ad-hoc-loop-tile\]" && rm temp
 ````

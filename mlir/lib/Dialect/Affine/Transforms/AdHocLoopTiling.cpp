@@ -98,23 +98,110 @@ LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
     ss << ifs.rdbuf();
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
                             << "file contains... [ " << ss.str() << " ]\n");
-    StringRef contents = StringRef(ss.str());
-    // bool fromJSON(const Value &E, std::map<std::string, T> &Out, Path P) {
-    // Expected<Value> E = json::parse("[1, 2, null]");
-    ///   assert(E && E->kind() == Value::Array);
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "1  ]\n");
-    llvm::Expected<llvm::json::Value> E = llvm::json::parse(contents);
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "2  ]\n");
-    //EXPECT_TRUE(!!E);
-    llvm::json::Object *O = E->getAsObject();
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
-    llvm::json::Value * val = O->get(StringRef("bounds"));
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "4  ]\n");
-    // assert(val && val->kind() == llvm::json::Value::Array);
-    //Value *get(StringRef K)
+    // tringRef contents = StringRef(ss.str());
+    //  try to parse
+    llvm::Expected<llvm::json::Value> maybeParsed =
+        llvm::json::parse(StringRef(ss.str()));
+    if (!maybeParsed) {
+      llvm::errs() << "Error when parsing JSON file: "
+                   << llvm::toString(maybeParsed.takeError());
+      exit(1);
+    }
+    // try to get the top level json object
+    if (!maybeParsed->getAsObject()) {
+      llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
+      exit(1);
+    }
+    // try to read a field
+    llvm::json::Object *O = maybeParsed->getAsObject();
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
+    llvm::json::Value *bnds = O->get(StringRef("bounds"));
+
+    if (!bnds->getAsArray()) { // getAsArray returns a (const json::Array *)
+      llvm::errs() << "Error: field labeled 'bounds' is not a JSON array \n ";
+      exit(1);
+    }
+
+    std::vector<std::vector<int>> bounds;
+    llvm::json::Path::Root Root("Try-to-parse-integer");
+
+    for (const auto &Item :
+         *(bnds->getAsArray())) { // loop over a json::Array type
+      if (!Item.getAsArray()) {
+        llvm::errs() << "Error: elt of 'bounds' is not also a JSON array \n ";
+        exit(1);
+      }
+      std::vector<int> sublist;
+      int bound;
+      for (const auto &elt : *(Item.getAsArray())) { // loop over a json::Array type
+        if (!fromJSON(elt, bound,Root)) {
+          llvm::errs() << llvm::toString(Root.getError()) << "\n";
+          Root.printErrorContext(elt, llvm::errs());
+          exit(1);
+        }
+        sublist.push_back(bound);
+      }
+      bounds.push_back(sublist);
+    }
 
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                            << "contents are of type [ " << val->kind() << " ]\n");
+                            << "YODELAYHEEHOOOOO~~~~~!\n");
+    std::stringstream boundss;
+    boundss << "[ ";
+    for(const auto &sublist: bounds){
+      boundss << "[ ";
+      for(const auto &bound: sublist){
+        boundss << " " << bound << " ";
+      }
+      boundss << "] ";
+    }
+    boundss << "]";
+
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                            << "the bounds we parsed from the json are...\n " << boundss.str() << "\n");
+    // std::vector<std::vector<int>> bounds;
+
+    // if(fromJSON(*val, bounds, llvm::json::Path::Root("hoodle"))){
+    //    LLVM_DEBUG(llvm::dbgs()
+    //            << "[" DEBUG_TYPE "] "
+    //            << "successfully parsed bounds as a [[int]] ]\n");
+
+    // }
+    // else{
+    //   llvm::errs() << "Error: could not parse bounds correctly "
+    //                << '\n';
+    // }
+
+    //     bool fromJSON(const Value &E, std::vector<T> &Out, Path P) {
+    //   if (auto *A = E.getAsArray()) {
+    //     Out.clear();
+    //     Out.resize(A->size());
+    //     for (size_t I = 0; I < A->size(); ++I)
+    //       if (!fromJSON((*A)[I], Out[I], P.index(I)))
+    //         return false;
+    //     return true;
+    //   }
+    //   P.report("expected array");
+    //   return false;
+    // }
+
+    // // bool fromJSON(const Value &E, std::map<std::string, T> &Out, Path P) {
+    // // Expected<Value> E = json::parse("[1, 2, null]");
+    // ///   assert(E && E->kind() == Value::Array);
+    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "1  ]\n");
+    // llvm::Expected<llvm::json::Value> E = llvm::json::parse(contents);
+    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "2  ]\n");
+    // // EXPECT_TRUE(!!E);
+    // llvm::json::Object *O = E->getAsObject();
+    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
+    // llvm::json::Value *val = O->get(StringRef("bounds"));
+    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "4  ]\n");
+    // // assert(val && val->kind() == llvm::json::Value::Array);
+    // // Value *get(StringRef K)
+
+    // LLVM_DEBUG(llvm::dbgs()
+    //            << "[" DEBUG_TYPE "] "
+    //            << "contents are of type [ " << val->kind() << " ]\n");
 
     return success();
 
