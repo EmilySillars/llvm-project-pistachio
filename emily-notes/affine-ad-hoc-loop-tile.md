@@ -98,6 +98,24 @@ Now I take in a file name, and read that file to get the tiling scheme!
 clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | head -n -38 && rm temp
 ```
 
+Problem:
+
+```
+In file included from /home/hoppip/llvm-project-pistachio/mlir/lib/Dialect/Affine/Transforms/AdHocLoopTiling.cpp:16:
+/home/hoppip/llvm-project-pistachio/mlir/include/mlir/Dialect/Affine/AdHocLoopUtils.h:55:13: warning: unused function 'constructTiledLoopNest' [-Wunused-function]
+   55 | static void constructTiledLoopNest(MutableArrayRef<AffineForOp> origLoops,
+      |             ^~~~~~~~~~~~~~~~~~~~~~
+/home/hoppip/llvm-project-pistachio/mlir/include/mlir/Dialect/Affine/AdHocLoopUtils.h:60:1: warning: unused function 'constructTiledIndexSetHyperRect' [-Wunused-function]
+   60 | constructTiledIndexSetHyperRect(MutableArrayRef<AffineForOp> origLoops,
+      | ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hoppip/llvm-project-pistachio/mlir/include/mlir/Dialect/Affine/AdHocLoopUtils.h:65:13: warning: unused function 'moveLoopBodyImpl' [-Wunused-function]
+   65 | static void moveLoopBodyImpl(AffineForOp src, AffineForOp dest,
+      |             ^~~~~~~~~~~~~~~~
+/home/hoppip/llvm-project-pistachio/mlir/include/mlir/Dialect/Affine/AdHocLoopUtils.h:70:13: warning: unused function 'moveLoopBody' [-Wunused-function]
+   70 | static void moveLoopBody(AffineForOp src, AffineForOp dest);
+
+```
+
 
 
 ````

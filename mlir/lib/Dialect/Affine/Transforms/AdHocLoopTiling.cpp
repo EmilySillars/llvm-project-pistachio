@@ -50,8 +50,42 @@ struct AdHocLoopTiling
     : public affine::impl::AffineAdHocLoopTilingBase<AdHocLoopTiling> {
   AdHocLoopTiling() = default;
   void runOnOperation() override;
-  void parseTilingScheme();
+  // everything below relates to processing the tiling scheme as input
   LogicalResult initializeOptions(StringRef options) override;
+  void parseTilingScheme(StringRef fileContent);
+  void parseListOfListOfInts(llvm::json::Object *obj, std::string listName,
+                             std::vector<std::vector<int>> &out);
+  struct TilingScheme {
+    // TODO: use SmallVector (llvm/include/llvm/ADT/SmallVector.h)
+    //       instead of std::vector!
+    //       Check this link about when to use Small Vector:
+    //       llvm/docs/ProgrammersManual.rst#L1543-L1544
+    std::vector<std::vector<int>> bounds;
+    std::vector<std::vector<int>> order;
+    TilingScheme() = default;
+  } ts;
+  friend std::stringstream &
+  operator<<(std::stringstream &ss, const AdHocLoopTiling::TilingScheme &ts) {
+    ss << "tiling scheme: {\nbounds: [ ";
+    for (const auto &sublist : ts.bounds) {
+      ss << "[ ";
+      for (const auto &bound : sublist) {
+        ss << " " << bound << " ";
+      }
+      ss << "] ";
+    }
+    ss << "]\n";
+    ss << "order: [ ";
+    for (const auto &sublist : ts.order) {
+      ss << "[ ";
+      for (const auto &pos : sublist) {
+        ss << " " << pos << " ";
+      }
+      ss << "] ";
+    }
+    ss << "]\n}";
+    return ss;
+  }
 };
 
 } // namespace
@@ -60,149 +94,151 @@ struct AdHocLoopTiling
 /// Function.
 std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::affine::createAdHocLoopTilingPass() {
-  auto thePass = std::make_unique<AdHocLoopTiling>();
-  thePass->parseTilingScheme();
-  return thePass;
+  return std::make_unique<AdHocLoopTiling>();
 }
 
-void AdHocLoopTiling::parseTilingScheme() {
-  // we only want to read the requested tiling scheme once
-  // std::ifstream ifs(this->tilingScheme);
-  // std::stringstream ss;
-  // ss << ifs.rdbuf();
+/// Checks whether hyper-rectangular loop tiling of the nest represented by
+/// `origLoops` is valid. The validity condition is from Irigoin and Triolet,
+/// which states that two tiles cannot depend on each other. We simplify such
+/// condition to just checking whether there is any negative dependence
+/// direction, since we have the prior knowledge that the tiling results will be
+/// hyper-rectangles, which are scheduled in the lexicographically increasing
+/// order on the vector of loop indices. This function will return failure when
+/// any dependence component is negative along any of `origLoops`.
+static bool checkTilingLegality(MutableArrayRef<AffineForOp> origLoops) {
+  assert(!origLoops.empty() && "no original loops provided");
 
-  // // auto strRef = StringRef(this->tilingScheme);
-  // auto strRef = this->getArgument();
-  // // Json::Value people;
-  // // people_file >> people;
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-  //                         << "inside the function `parseTilingScheme`\n");
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-  //                         << "file name is  [ " << strRef << " ]\n");
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-  //                         << "file contains... [ " << ss.str() << " ]\n");
+  // We first find out all dependences we intend to check.
+  SmallVector<Operation *, 8> loadAndStoreOps;
+  origLoops[0]->walk([&](Operation *op) {
+    if (isa<AffineReadOpInterface, AffineWriteOpInterface>(op))
+      loadAndStoreOps.push_back(op);
+  });
+
+  unsigned numOps = loadAndStoreOps.size();
+  unsigned numLoops = origLoops.size();
+  for (unsigned d = 1; d <= numLoops + 1; ++d) {
+    for (unsigned i = 0; i < numOps; ++i) {
+      Operation *srcOp = loadAndStoreOps[i];
+      MemRefAccess srcAccess(srcOp);
+      for (unsigned j = 0; j < numOps; ++j) {
+        Operation *dstOp = loadAndStoreOps[j];
+        MemRefAccess dstAccess(dstOp);
+
+        SmallVector<DependenceComponent, 2> depComps;
+        DependenceResult result = checkMemrefAccessDependence(
+            srcAccess, dstAccess, d, /*dependenceConstraints=*/nullptr,
+            &depComps);
+
+        // Skip if there is no dependence in this case.
+        if (!hasDependence(result))
+          continue;
+
+        // Check whether there is any negative direction vector in the
+        // dependence components found above, which means that dependence is
+        // violated by the default hyper-rect tiling method.
+        LLVM_DEBUG(llvm::dbgs() << "Checking whether tiling legality violated "
+                                   "for dependence at depth: "
+                                << Twine(d) << " between:\n";);
+        LLVM_DEBUG(srcAccess.opInst->dump(););
+        LLVM_DEBUG(dstAccess.opInst->dump(););
+        for (const DependenceComponent &depComp : depComps) {
+          if (depComp.lb.has_value() && depComp.ub.has_value() &&
+              *depComp.lb < *depComp.ub && *depComp.ub < 0) {
+            LLVM_DEBUG(llvm::dbgs()
+                       << "Dependence component lb = " << Twine(*depComp.lb)
+                       << " ub = " << Twine(*depComp.ub)
+                       << " is negative  at depth: " << Twine(d)
+                       << " and thus violates the legality rule.\n");
+            return false;
+          }
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+void AdHocLoopTiling::parseListOfListOfInts(
+    llvm::json::Object *obj, std::string listName,
+    std::vector<std::vector<int>> &out) {
+  llvm::json::Value *bnds = obj->get(StringRef(listName));
+  if (!bnds) { // getAsArray returns a (const json::Array *)
+    llvm::errs() << "Error: field labeled '" << listName
+                 << "' does not exist \n ";
+    exit(1);
+  }
+
+  if (!bnds->getAsArray()) { // getAsArray returns a (const json::Array *)
+    llvm::errs() << "Error: field labeled '" << listName
+                 << "' is not a JSON array \n ";
+    exit(1);
+  }
+  llvm::json::Path::Root Root("Try-to-parse-integer");
+  for (const auto &Item :
+       *(bnds->getAsArray())) { // loop over a json::Array type
+    if (!Item.getAsArray()) {
+      llvm::errs() << "Error: elt of '" << listName
+                   << "' is not also a JSON array \n ";
+      exit(1);
+    }
+    std::vector<int> sublist;
+    int bound;
+    for (const auto &elt :
+         *(Item.getAsArray())) { // loop over a json::Array type
+      if (!fromJSON(elt, bound, Root)) {
+        llvm::errs() << llvm::toString(Root.getError()) << "\n";
+        Root.printErrorContext(elt, llvm::errs());
+        exit(1);
+      }
+      sublist.push_back(bound);
+    }
+    out.push_back(sublist);
+  }
+}
+
+void AdHocLoopTiling::parseTilingScheme(StringRef fileContent) {
+  llvm::Expected<llvm::json::Value> maybeParsed =
+      llvm::json::parse(fileContent);
+  if (!maybeParsed) {
+    llvm::errs() << "Error when parsing JSON file contents: "
+                 << llvm::toString(maybeParsed.takeError());
+    exit(1);
+  }
+  // try to get the top level json object
+  if (!maybeParsed->getAsObject()) {
+    llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
+    exit(1);
+  }
+  llvm::json::Object *O = maybeParsed->getAsObject();
+  // try to read the two fields
+  parseListOfListOfInts(O, "bounds", ts.bounds);
+  parseListOfListOfInts(O, "order", ts.order);
 }
 
 LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
                           << "the options are  [ " << options << " ]\n");
-  // bool 	consume_front (StringRef Prefix)
-  // Returns true if this StringRef has the given prefix and removes that
-  // prefix.
+  // try to extract file name from the options
   if (options.consume_front(StringRef("tiling-scheme="))) {
     LLVM_DEBUG(llvm::dbgs()
                << "[" DEBUG_TYPE "] "
                << "the filename is  [ " << options.data() << " ]\n");
+    // try to read file
     std::ifstream ifs(options.data());
     std::stringstream ss;
     ss << ifs.rdbuf();
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
                             << "file contains... [ " << ss.str() << " ]\n");
-    // tringRef contents = StringRef(ss.str());
-    //  try to parse
-    llvm::Expected<llvm::json::Value> maybeParsed =
-        llvm::json::parse(StringRef(ss.str()));
-    if (!maybeParsed) {
-      llvm::errs() << "Error when parsing JSON file: "
-                   << llvm::toString(maybeParsed.takeError());
-      exit(1);
-    }
-    // try to get the top level json object
-    if (!maybeParsed->getAsObject()) {
-      llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
-      exit(1);
-    }
-    // try to read a field
-    llvm::json::Object *O = maybeParsed->getAsObject();
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
-    llvm::json::Value *bnds = O->get(StringRef("bounds"));
-
-    if (!bnds->getAsArray()) { // getAsArray returns a (const json::Array *)
-      llvm::errs() << "Error: field labeled 'bounds' is not a JSON array \n ";
-      exit(1);
-    }
-
-    std::vector<std::vector<int>> bounds;
-    llvm::json::Path::Root Root("Try-to-parse-integer");
-
-    for (const auto &Item :
-         *(bnds->getAsArray())) { // loop over a json::Array type
-      if (!Item.getAsArray()) {
-        llvm::errs() << "Error: elt of 'bounds' is not also a JSON array \n ";
-        exit(1);
-      }
-      std::vector<int> sublist;
-      int bound;
-      for (const auto &elt : *(Item.getAsArray())) { // loop over a json::Array type
-        if (!fromJSON(elt, bound,Root)) {
-          llvm::errs() << llvm::toString(Root.getError()) << "\n";
-          Root.printErrorContext(elt, llvm::errs());
-          exit(1);
-        }
-        sublist.push_back(bound);
-      }
-      bounds.push_back(sublist);
-    }
-
+    //  try to parse file contents
+    parseTilingScheme(StringRef(ss.str()));
+    std::stringstream ts_ss;
+    ts_ss << ts;
+    // print out what we parsed
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                            << "YODELAYHEEHOOOOO~~~~~!\n");
-    std::stringstream boundss;
-    boundss << "[ ";
-    for(const auto &sublist: bounds){
-      boundss << "[ ";
-      for(const auto &bound: sublist){
-        boundss << " " << bound << " ";
-      }
-      boundss << "] ";
-    }
-    boundss << "]";
-
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-                            << "the bounds we parsed from the json are...\n " << boundss.str() << "\n");
-    // std::vector<std::vector<int>> bounds;
-
-    // if(fromJSON(*val, bounds, llvm::json::Path::Root("hoodle"))){
-    //    LLVM_DEBUG(llvm::dbgs()
-    //            << "[" DEBUG_TYPE "] "
-    //            << "successfully parsed bounds as a [[int]] ]\n");
-
-    // }
-    // else{
-    //   llvm::errs() << "Error: could not parse bounds correctly "
-    //                << '\n';
-    // }
-
-    //     bool fromJSON(const Value &E, std::vector<T> &Out, Path P) {
-    //   if (auto *A = E.getAsArray()) {
-    //     Out.clear();
-    //     Out.resize(A->size());
-    //     for (size_t I = 0; I < A->size(); ++I)
-    //       if (!fromJSON((*A)[I], Out[I], P.index(I)))
-    //         return false;
-    //     return true;
-    //   }
-    //   P.report("expected array");
-    //   return false;
-    // }
-
-    // // bool fromJSON(const Value &E, std::map<std::string, T> &Out, Path P) {
-    // // Expected<Value> E = json::parse("[1, 2, null]");
-    // ///   assert(E && E->kind() == Value::Array);
-    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "1  ]\n");
-    // llvm::Expected<llvm::json::Value> E = llvm::json::parse(contents);
-    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "2  ]\n");
-    // // EXPECT_TRUE(!!E);
-    // llvm::json::Object *O = E->getAsObject();
-    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "3  ]\n");
-    // llvm::json::Value *val = O->get(StringRef("bounds"));
-    // // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << "4  ]\n");
-    // // assert(val && val->kind() == llvm::json::Value::Array);
-    // // Value *get(StringRef K)
-
-    // LLVM_DEBUG(llvm::dbgs()
-    //            << "[" DEBUG_TYPE "] "
-    //            << "contents are of type [ " << val->kind() << " ]\n");
-
+                            << "the tile scheme we parsed from the json is...\n"
+                            << ts_ss.str() << "\n");
     return success();
 
   } else {
@@ -211,70 +247,45 @@ LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
 }
 
 void AdHocLoopTiling::runOnOperation() {
-  // Bands of loops to tile.
+    // Bands of loops to tile.
   std::vector<SmallVector<AffineForOp, 6>> bands;
   getTileableBands(getOperation(), &bands);
 
-  //  tileSizes->assign(this->tileSizes.begin(), this->tileSizes.end());
-
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< "Can i print out a
-  // parameter passed in? It's..." << this->tilingScheme<<"
-  // yodelayheeehooooo!!!\n");
-
-  // std::ifstream tile_scheme_file(this->tilingScheme, std::ifstream::binary);
-  // std::string fileContent;
-  // tile_scheme_file >> fileContent;
-
-  // std::ifstream ifs(this->tilingScheme);
-  // std::stringstream ss;
-  // ss << ifs.rdbuf();
-
-  // auto strRef = StringRef(this->tilingScheme);
-  // // Json::Value people;
-  // // people_file >> people;
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< "file name is  [ " <<
-  // strRef <<" ]\n"); LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< "file
-  // contains... [ " << ss.str() <<" ]\n");
-
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " <<
-  // AdHocLoopTiling::kDefaultTileSize <<" yodelayheeehooooo\n");
-
   // Tile each band.
-  // for (auto &band : bands) {
-  //   if (!checkTilingLegality(band)) {
-  //     band.front().emitRemark("tiling code is illegal due to dependences");
-  //     continue;
-  //   }
+  for (auto &band : bands) {
+    if (!checkTilingLegality(band)) {
+      band.front().emitRemark("tiling code is illegal due to dependences");
+      continue;
+    }
 
-  //   // Set up tile sizes; fill missing tile sizes at the end with default
-  //   tile
-  //   // size or tileSize if one was provided.
-  //   SmallVector<unsigned, 6> tileSizes;
-  //   getTileSizes(band, &tileSizes);
-  //   if (llvm::DebugFlag) {
-  //     auto diag = band[0].emitRemark("using tile sizes [");
-  //     for (unsigned tSize : tileSizes)
-  //       diag << tSize << ' ';
-  //     diag << "]\n";
-  //   }
-  //   SmallVector<AffineForOp, 6> tiledNest;
-  //   if (failed(tilePerfectlyNested(band, tileSizes, &tiledNest))) {
-  //     // An empty band always succeeds.
-  //     assert(!band.empty() && "guaranteed to succeed on empty bands");
-  //     LLVM_DEBUG(band.front()->emitRemark("loop tiling failed!\n"));
-  //     continue;
-  //   }
+    // Set up tile sizes; fill missing tile sizes at the end with default tile
+    // size or tileSize if one was provided.
+    SmallVector<unsigned, 6> tileSizes;
+    // getTileSizes(band, &tileSizes);
+    // if (llvm::DebugFlag) {
+    //   auto diag = band[0].emitRemark("using tile sizes [");
+    //   for (unsigned tSize : tileSizes)
+    //     diag << tSize << ' ';
+    //   diag << "]\n";
+    // }
+    // SmallVector<AffineForOp, 6> tiledNest;
+    // if (failed(AdHocLoopTile::tilePerfectlyNested(band, tileSizes, &tiledNest))) {
+    //   // An empty band always succeeds.
+    //   assert(!band.empty() && "guaranteed to succeed on empty bands");
+    //   LLVM_DEBUG(band.front()->emitRemark("loop tiling failed!\n"));
+    //   continue;
+    // }
 
-  //   // Separate full and partial tiles.
-  //   if (separate) {
-  //     auto intraTileLoops =
-  //         MutableArrayRef<AffineForOp>(tiledNest).drop_front(band.size());
-  //     if (failed(separateFullTiles(intraTileLoops))) {
-  //       assert(!intraTileLoops.empty() &&
-  //              "guaranteed to succeed on empty bands");
-  //       LLVM_DEBUG(intraTileLoops.front()->emitRemark(
-  //           "separation post tiling failed!\n"));
-  //     }
-  //   }
-  // }
-}
+    // // Separate full and partial tiles.
+    // if (separate) {
+    //   auto intraTileLoops =
+    //       MutableArrayRef<AffineForOp>(tiledNest).drop_front(band.size());
+    //   if (failed(separateFullTiles(intraTileLoops))) {
+    //     assert(!intraTileLoops.empty() &&
+    //            "guaranteed to succeed on empty bands");
+    //     LLVM_DEBUG(intraTileLoops.front()->emitRemark(
+    //         "separation post tiling failed!\n"));
+    //   }
+    // }
+  } 
+} // end of runOnOperation

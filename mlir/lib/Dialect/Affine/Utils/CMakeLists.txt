@@ -1,6 +1,7 @@
 add_mlir_dialect_library(MLIRAffineUtils
   LoopFusionUtils.cpp
   LoopUtils.cpp
+  AdHocLoopUtils.cpp
   Utils.cpp
   ViewLikeInterfaceUtils.cpp
 
