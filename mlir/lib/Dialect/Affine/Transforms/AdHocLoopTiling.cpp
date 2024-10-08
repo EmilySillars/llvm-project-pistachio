@@ -50,6 +50,8 @@ struct AdHocLoopTiling
     : public affine::impl::AffineAdHocLoopTilingBase<AdHocLoopTiling> {
   AdHocLoopTiling() = default;
   void runOnOperation() override;
+  LogicalResult tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
+                                    SmallVectorImpl<AffineForOp> *tiledNest);
   // everything below relates to processing the tiling scheme as input
   LogicalResult initializeOptions(StringRef options) override;
   void parseTilingScheme(StringRef fileContent);
@@ -96,7 +98,8 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::affine::createAdHocLoopTilingPass() {
   return std::make_unique<AdHocLoopTiling>();
 }
-
+/* vvvvvvvvvvvvvvvvvvvvvvvvvvvv this function was completely copy-and-pasted
+ * from LoopTiling.cpp vvvvvvvvvvvvvvv*/
 /// Checks whether hyper-rectangular loop tiling of the nest represented by
 /// `origLoops` is valid. The validity condition is from Irigoin and Triolet,
 /// which states that two tiles cannot depend on each other. We simplify such
@@ -159,7 +162,251 @@ static bool checkTilingLegality(MutableArrayRef<AffineForOp> origLoops) {
 
   return true;
 }
+/* ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ this function was completely copy-and-pasted
+ * from LoopTiling.cpp ^^^^^^^^^^^^^^^*/
 
+void AdHocLoopTiling::runOnOperation() {
+  // Bands of loops to tile.
+  std::vector<SmallVector<AffineForOp, 6>> bands;
+  getTileableBands(getOperation(), &bands);
+  // std::vector<SmallVector<AffineForOp, 6>> tiledBands;
+
+  // Tile each band.
+  for (auto &band : bands) {
+    if (!checkTilingLegality(band)) {
+      band.front().emitRemark("tiling code is illegal due to dependences");
+      continue;
+    }
+
+    // Set up tile sizes;
+    // tile perfectly nested loops
+    // TODO: Separate full and partial tiles.
+
+    // Set up tile sizes; fill missing tile sizes at the end with default tile
+    // size or tileSize if one was provided.
+    // std::vector<std::vector<unsigned>> tileSizes;
+    // tileSizes.push_back(std::vector<unsigned>());
+    // for (auto &bound : ts.bounds) {
+    //   unsigned tileSize = 0;
+    //   // tileSizes.back().push_back(tileSize)
+    // }
+
+    // band.size();
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                         << "band size is  " << band.size() << " \n");
+
+    // for (size_t i = 0; i < band.size(); i++) {
+    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] i is " << i << "\n");
+    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                           << "band[" << i << "].getLowerBoundMap() is  "
+    //                           << band[i].getLowerBoundMap() << " \n");
+    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                           << "band[" << i << "].getUpperBoundMap() is  "
+    //                           << band[i].getUpperBoundMap() << " \n");
+    // }
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after for loop! \n");
+
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                         << "band[0].getLowerBoundMap() is  " <<
+    //                         band[0].getLowerBoundMap() << " \n");
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                         << "band[0].getUpperBoundMap() is  " <<
+    //                         band[0].getUpperBoundMap() << " \n");
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+    //                         << "band[0].getUpperBound().getOperand(0) is  "
+    //                         << band[0].getUpperBound().getOperand(0) << "
+    //                         \n");
+    // reference code snippets
+    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    //     bool AffineForOp::hasConstantLowerBound() {
+    //   return getLowerBoundMap().isSingleConstant();
+    // }
+
+    // bool AffineForOp::hasConstantUpperBound() {
+    //   return getUpperBoundMap().isSingleConstant();
+    // }
+
+    // int64_t AffineForOp::getConstantLowerBound() {
+    //   return getLowerBoundMap().getSingleConstantResult();
+    // }
+
+    // int64_t AffineForOp::getConstantUpperBound() {
+    //   return getUpperBoundMap().getSingleConstantResult();
+    // }
+    // getTileSizes(band, &tileSizes); //SmallVectorImpl<unsigned> *tileSizes
+    // forOp.getLowerBoundMap()
+    //     auto *loopBody = forOp.getBody();
+    // auto indVar = forOp.getInductionVar();
+    // ValueRange iterArgs = forOp.getRegionIterArgs();
+
+    // // This is the place where hoisted instructions would reside.
+    // OpBuilder b(forOp.getOperation());
+
+    // SmallPtrSet<Operation *, 8> opsToHoist;
+    // SmallVector<Operation *, 8> opsToMove;
+    // SmallPtrSet<Operation *, 8> opsWithUsers;
+    // llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
+    //   exit(1);
+    // LLVM_DEBUG(llvm::dbgs()
+    //            << "[" DEBUG_TYPE "] "
+    //            << "the filename is  [ " << options.data() << " ]\n");
+    // reference code snippets
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    // if (llvm::DebugFlag) {
+    //   auto diag = band[0].emitRemark("using tile sizes [");
+    //   for (unsigned tSize : tileSizes)
+    //     diag << tSize << ' ';
+    //   diag << "]\n";
+    // }
+    SmallVector<AffineForOp, 6> tiledNest;
+    if (failed(AdHocLoopTiling::tilePerfectlyNested(band, &tiledNest))) {
+      // An empty band always succeeds.
+      assert(!band.empty() && "guaranteed to succeed on empty bands");
+      LLVM_DEBUG(band.front()->emitRemark("loop tiling failed!\n"));
+      continue;
+    }
+
+    // // Separate full and partial tiles.
+    // if (separate) {
+    //   auto intraTileLoops =
+    //       MutableArrayRef<AffineForOp>(tiledNest).drop_front(band.size());
+    //   if (failed(separateFullTiles(intraTileLoops))) {
+    //     assert(!intraTileLoops.empty() &&
+    //            "guaranteed to succeed on empty bands");
+    //     LLVM_DEBUG(intraTileLoops.front()->emitRemark(
+    //         "separation post tiling failed!\n"));
+    //   }
+    // }
+  }
+  // Operation* op = getOperation();
+  // ValueRange operands = op->getOperands();
+} // end of runOnOperation
+
+LogicalResult
+AdHocLoopTiling::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
+                                     SmallVectorImpl<AffineForOp> *tiledNest) {
+  if (input.empty())
+    return success();
+
+  // std::vector<std::vector<unsigned>> tileSizes;
+  // tileSizes.push_back(std::vector<unsigned>());
+  // for (auto &bound : ts.bounds) {
+  //   unsigned tileSize = 0;
+  //   // tileSizes.back().push_back(tileSize)
+  // }
+
+  input.size();
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                          << "input size is  " << input.size() << " \n");
+
+  for (size_t i = 0; i < input.size(); i++) {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] i is " << i << "\n");
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                            << "input[" << i << "].getLowerBoundMap() is  "
+                            << input[i].getLowerBoundMap() << " \n");
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                            << "input[" << i << "].getUpperBoundMap() is  "
+                            << input[i].getUpperBoundMap() << " \n");
+  }
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after for loop! \n");
+
+  // if (failed(performPreTilingChecks(input, tileSizes)))
+  //   return failure();
+
+  MutableArrayRef<AffineForOp> origLoops = input;
+  AffineForOp rootAffineForOp = origLoops[0];
+
+  // // Note that width is at least one since the band isn't empty.
+  unsigned width = input.size();
+  SmallVector<AffineForOp, 6> tiledLoops(2 * width);
+
+  // // Construct a tiled loop nest without setting their bounds. Bounds are
+  // // set later.
+  AdHocLoopTile::constructDummyLoopNest(origLoops, rootAffineForOp, width, tiledLoops);
+
+
+  SmallVector<Value, 8> origLoopIVs;
+  extractForInductionVars(input, &origLoopIVs);
+
+  for (auto& elt : origLoopIVs){
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< elt<<" \n");
+
+  }
+
+  
+  SmallVector<unsigned, 6> tileSizes;
+  tileSizes.assign(input.size(), 13);
+ 
+
+  AdHocLoopTile::constructTiledIndexSetHyperRect(origLoops, tiledLoops, tileSizes);
+
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after constructTiledIndexSetHyperRect... \n");
+  for(const auto& elt : tiledLoops){
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] elt is "<< elt<<" \n");
+  }
+
+  // Replace original IVs with intra-tile loop IVs.
+  for (unsigned i = 0; i < width; i++)
+    origLoopIVs[i].replaceAllUsesWith(tiledLoops[i + width].getInductionVar());
+
+
+  // SmallVector<Value, 8> origLoopIVs;
+  // extractForInductionVars(input, &origLoopIVs);
+
+  // // Set loop bounds for the tiled loop nest.
+  // constructTiledIndexSetHyperRect(origLoops, tiledLoops, tileSizes);
+
+  // // Replace original IVs with intra-tile loop IVs.
+  // for (unsigned i = 0; i < width; i++)
+  //   origLoopIVs[i].replaceAllUsesWith(tiledLoops[i +
+  //   width].getInductionVar());
+
+  // Erase the old loop nest.
+  rootAffineForOp.erase();
+
+  if (tiledNest)
+    *tiledNest = std::move(tiledLoops);
+
+  return success();
+}
+
+// static void lowerOpToLoops(Operation *op, ValueRange operands,
+//                            PatternRewriter &rewriter,
+//                            LoopIterationFn processIteration) {
+//   auto tensorType = llvm::cast<RankedTensorType>((*op->result_type_begin()));
+//   auto loc = op->getLoc();
+
+//   // Insert an allocation and deallocation for the result of this operation.
+//   auto memRefType = convertTensorToMemRef(tensorType);
+//   auto alloc = insertAllocAndDealloc(memRefType, loc, rewriter);
+
+//   // Create a nest of affine loops, with one loop per dimension of the shape.
+//   // The buildAffineLoopNest function takes a callback that is used to
+//   construct
+//   // the body of the innermost loop given a builder, a location and a range
+//   of
+//   // loop induction variables.
+//   SmallVector<int64_t, 4> lowerBounds(tensorType.getRank(), /*Value=*/0);
+//   SmallVector<int64_t, 4> steps(tensorType.getRank(), /*Value=*/1);
+//   affine::buildAffineLoopNest(
+//       rewriter, loc, lowerBounds, tensorType.getShape(), steps,
+//       [&](OpBuilder &nestedBuilder, Location loc, ValueRange ivs) {
+//         // Call the processing function with the rewriter, the memref
+//         operands,
+//         // and the loop induction variables. This function will return the
+//         value
+//         // to store at the current index.
+//         Value valueToStore = processIteration(nestedBuilder, operands, ivs);
+//         nestedBuilder.create<affine::AffineStoreOp>(loc, valueToStore, alloc,
+//                                                     ivs);
+//       });
+
+//   // Replace this operation with the generated alloc.
+//   rewriter.replaceOp(op, alloc);
+// }
+
+// helpers for processing tiling scheme input
 void AdHocLoopTiling::parseListOfListOfInts(
     llvm::json::Object *obj, std::string listName,
     std::vector<std::vector<int>> &out) {
@@ -245,47 +492,3 @@ LogicalResult AdHocLoopTiling::initializeOptions(StringRef options) {
     return failure();
   }
 }
-
-void AdHocLoopTiling::runOnOperation() {
-    // Bands of loops to tile.
-  std::vector<SmallVector<AffineForOp, 6>> bands;
-  getTileableBands(getOperation(), &bands);
-
-  // Tile each band.
-  for (auto &band : bands) {
-    if (!checkTilingLegality(band)) {
-      band.front().emitRemark("tiling code is illegal due to dependences");
-      continue;
-    }
-
-    // Set up tile sizes; fill missing tile sizes at the end with default tile
-    // size or tileSize if one was provided.
-    SmallVector<unsigned, 6> tileSizes;
-    // getTileSizes(band, &tileSizes);
-    // if (llvm::DebugFlag) {
-    //   auto diag = band[0].emitRemark("using tile sizes [");
-    //   for (unsigned tSize : tileSizes)
-    //     diag << tSize << ' ';
-    //   diag << "]\n";
-    // }
-    // SmallVector<AffineForOp, 6> tiledNest;
-    // if (failed(AdHocLoopTile::tilePerfectlyNested(band, tileSizes, &tiledNest))) {
-    //   // An empty band always succeeds.
-    //   assert(!band.empty() && "guaranteed to succeed on empty bands");
-    //   LLVM_DEBUG(band.front()->emitRemark("loop tiling failed!\n"));
-    //   continue;
-    // }
-
-    // // Separate full and partial tiles.
-    // if (separate) {
-    //   auto intraTileLoops =
-    //       MutableArrayRef<AffineForOp>(tiledNest).drop_front(band.size());
-    //   if (failed(separateFullTiles(intraTileLoops))) {
-    //     assert(!intraTileLoops.empty() &&
-    //            "guaranteed to succeed on empty bands");
-    //     LLVM_DEBUG(intraTileLoops.front()->emitRemark(
-    //         "separation post tiling failed!\n"));
-    //   }
-    // }
-  } 
-} // end of runOnOperation

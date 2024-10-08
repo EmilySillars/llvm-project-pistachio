@@ -44,10 +44,23 @@ class AffineForOp;
 struct MemRefRegion;
 
 namespace AdHocLoopTile {
-// help
-LogicalResult tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
-                                  ArrayRef<unsigned> tileSizes,
-                                  SmallVectorImpl<AffineForOp> *tiledNest);
+
+struct TiledLoop{
+    AffineForOp * loop = 0; // the payload
+    std::vector<struct TiledLoop> subloops;
+    TiledLoop() = default;
+    size_t size() { return subloops.size();} 
+    // TODO: make this a union type!! or a variant type!
+    //AffineForOp& operator[](size_t index){return this->subloops[index];}   
+};
+
+void constructDummyLoopNest(MutableArrayRef<AffineForOp> origLoops,
+                                   AffineForOp rootAffineForOp, unsigned width,
+                                   MutableArrayRef<AffineForOp> tiledLoops);
+
+// LogicalResult tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
+//                                   ArrayRef<unsigned> tileSizes,
+//                                   SmallVectorImpl<AffineForOp> *tiledNest);
 template <typename t>
 static LogicalResult performPreTilingChecks(MutableArrayRef<AffineForOp> input,
                                             ArrayRef<t> tileSizes);
@@ -56,7 +69,7 @@ static void constructTiledLoopNest(MutableArrayRef<AffineForOp> origLoops,
                                    AffineForOp rootAffineForOp, unsigned width,
                                    MutableArrayRef<AffineForOp> tiledLoops);
 // static bool checkTilingLegality(MutableArrayRef<AffineForOp> origLoops);
-static void
+void
 constructTiledIndexSetHyperRect(MutableArrayRef<AffineForOp> origLoops,
                                 MutableArrayRef<AffineForOp> newLoops,
                                 ArrayRef<unsigned> tileSizes);

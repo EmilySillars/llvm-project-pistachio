@@ -98,6 +98,16 @@ Now I take in a file name, and read that file to get the tiling scheme!
 clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | head -n -38 && rm temp
 ```
 
+
+
+Best way to run when you need to see only your own print statements:
+
+```
+clear;mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep affine-ad-hoc-loop-tile && rm temp
+```
+
+
+
 Problem:
 
 ```
@@ -148,6 +158,33 @@ I need to parse the json file with something inside this file:
 
 
 ## Old notes delete later
+
+Checking band size for `matmul104x104-as-affine.mlir` gives
+
+```
+Args: mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading 
+[affine-ad-hoc-loop-tile] the options are  [ tiling-scheme=zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] the filename is  [ zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] file contains... [ {
+[affine-ad-hoc-loop-tile] the tile scheme we parsed from the json is...
+[affine-ad-hoc-loop-tile] band size is  3 
+```
+
+checking band size for `matmul104x104-tiled-twice.mlir` gives
+
+```
+Args: mlir-opt --affine-ad-hoc-loop-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-tiled-twice.mlir --debug --mlir-disable-threading 
+[affine-ad-hoc-loop-tile] the options are  [ tiling-scheme=zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] the filename is  [ zigzag-tile-scheme.json ]
+[affine-ad-hoc-loop-tile] file contains... [ {
+[affine-ad-hoc-loop-tile] the tile scheme we parsed from the json is...
+[affine-ad-hoc-loop-tile] band size is  6 
+
+```
+
+
+
+
 
 I need to take in a list of lists! How to do this on command line? Currently only list of uints works...
 
