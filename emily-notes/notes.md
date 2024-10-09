@@ -302,4 +302,16 @@ func.func @matmul104x104(
 
 ## How to create the affine maps and put them in the for-loops???
 
-Either `extractForInductionVars` or `constructTiledIndexSetHyperRect` does it.
+Either `extractForInductionVars` or `constructTiledIndexSetHyperRect` does it. It's the latter. Let's cross that bridge when we come to it.
+
+## Little Steps
+
+I can calculate the tile size on the fly
+
+First I need to interchange the loops, and add their bounds?? Or I create another stuct  that holds AffineForOp references from original to the subloops?
+
+Let's first try to add the loops with their bounds, then set the body??
+
+Print out the original
+
+print out old body with single loop

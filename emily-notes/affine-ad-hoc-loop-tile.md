@@ -51,6 +51,14 @@ func.func @matmul104x104(
         for a1 in [0, 13):           l1                 l3                 rf_x1_thru_x31      A1 = 13
   ```
 
+- which I manually encoded as the following json:
+  ```
+  {
+      "bounds":[[13], [13], [4,2]],
+      "order":[[2,0], [2,1], [1,0], [0,0]]
+  }
+  ```
+
 **Desired Output:**
 
 ```
@@ -79,7 +87,7 @@ func.func @matmul104x104(
                   %5 = arith.muli %3, %4 : i32
                   %6 = arith.addi %2, %5 : i32
                   affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
-                }// end of hoodle for
+                } // end of hoodle for
               }
             }
           }
@@ -87,7 +95,7 @@ func.func @matmul104x104(
       }
     }
     return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
-  }
+ }
 ```
 
 ## III. Implementation
@@ -190,5 +198,128 @@ I need to take in a list of lists! How to do this on command line? Currently onl
 
 ```
 mlir-opt --affine-ad-hoc-loop-tile=tile-sizes=8,8,26,1,1,13 matmul104x104-as-affine.mlir 
+```
+
+```
+   //AffineBound ub = origLoops[i].getUpperBound();
+
+    // llvm::errs() << "Error: field labeled '" << listName
+    //              << "' does not exist \n ";
+    // exit(1);
+
+    // OperandRange newLbOperands = origLoops[i].getLowerBoundOperands();
+    // OperandRange newUbOperands = origLoops[i].getUpperBoundOperands();
+    // newLoops[i].setLowerBound(newLbOperands, origLoops[i].getLowerBoundMap());
+    // newLoops[i].setUpperBound(newUbOperands, origLoops[i].getUpperBoundMap());
+    // // If the step size of original loop is x and tileSize is y then after
+    // // tiling the tile space loops' step size becomes x*y.
+    // newLoops[i].setStep(tileSizes[i] * origLoops[i].getStepAsInt());
+    // AffineBound ub = origLoops[i].getUpperBound();
+        // reference code snippets
+    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    //     bool AffineForOp::hasConstantLowerBound() {
+    //   return getLowerBoundMap().isSingleConstant();
+    // }
+    // bool AffineForOp::hasConstantUpperBound() {
+    //   return getUpperBoundMap().isSingleConstant();
+    // }
+    // int64_t AffineForOp::getConstantLowerBound() {
+    //   return getLowerBoundMap().getSingleConstantResult();
+    // }
+    // int64_t AffineForOp::getConstantUpperBound() {
+    //   return getUpperBoundMap().getSingleConstantResult();
+    // }
+    // getTileSizes(band, &tileSizes); //SmallVectorImpl<unsigned> *tileSizes
+    // forOp.getLowerBoundMap()
+    //     auto *loopBody = forOp.getBody();
+    // auto indVar = forOp.getInductionVar();
+    // ValueRange iterArgs = forOp.getRegionIterArgs();
+    // // This is the place where hoisted instructions would reside.
+    // OpBuilder b(forOp.getOperation());
+    // SmallPtrSet<Operation *, 8> opsToHoist;
+    // SmallVector<Operation *, 8> opsToMove;
+    // SmallPtrSet<Operation *, 8> opsWithUsers;
+    // llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
+    //   exit(1);
+    // LLVM_DEBUG(llvm::dbgs()
+    //            << "[" DEBUG_TYPE "] "
+    //            << "the filename is  [ " << options.data() << " ]\n");
+    // reference code snippets
+    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    // unsiged tileSize = original loop bound / bound
+    // throw an error if bound is not divisible?
+    // TODO: validation that the tiling scheme makes sense!
+```
+
+```
+for (size_t i = 0; i < ts.order.size(); i++) {
+    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Orig Loop is "<<
+    // orig<<"\n");
+    subloops.push_back(std::vector<AffineForOp>());
+    for (size_t j = 0; j < ts.order[i].size(); j++) {
+      // we assume order is really a list of "tuples"
+      uint64_t uBound = ts.bounds[i][j];
+      uint64_t tileSize;
+      if (origLoops[i].hasConstantUpperBound()) {
+        uint64_t oldUBound = origLoops[i].getConstantUpperBound();
+        LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] oldUBound:[" << oldUBound << "] uBound:["<< uBound<<"] \n");
+        tileSize = oldUBound / uBound;
+
+      } else {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "[" DEBUG_TYPE
+                      "] no constant upper bound, so using default val of "
+                   << 87 << "\n");
+        tileSize = 87;
+      }
+      OpBuilder b(topLoop);
+      AffineForOp pointLoop = b.create<AffineForOp>(loc, i, uBound);
+       LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] step size proposed was  [" << tileSize << "] \n");
+      pointLoop.setStep(tileSize);
+      subloops.back().push_back(pointLoop);
+      topLoop = pointLoop.getOperation();
+      if (i == 0)
+        innermostPointLoop = pointLoop;
+    }
+  }
+```
+
+something is very messed up here:
+
+```
+  size_t bad = 0;
+  for (const auto &order : ts.order) {
+    // we assume order is really a list of "2-elt-tuples"
+    size_t loopIdx = order[0];
+    size_t subloopIdx = order[1];
+    subloops.push_back(std::vector<AffineForOp>());
+    for (size_t j = 0; j < ts.order[i].size(); j++) {
+
+      uint64_t uBound = ts.bounds[i][j];
+      uint64_t tileSize;
+      if (origLoops[i].hasConstantUpperBound()) {
+        uint64_t oldUBound = origLoops[bad].getConstantUpperBound();
+        LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] oldUBound:[" << oldUBound
+                                << "] uBound:[" << uBound << "] \n");
+        tileSize = oldUBound / uBound;
+
+      } else {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "[" DEBUG_TYPE
+                      "] no constant upper bound, so using default val of "
+                   << 87 << "\n");
+        tileSize = 87;
+      }
+      OpBuilder b(topLoop);
+      AffineForOp pointLoop = b.create<AffineForOp>(loc, i, uBound);
+      LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] step size proposed was  ["
+                              << tileSize << "] \n");
+      pointLoop.setStep(tileSize);
+      subloops.back().push_back(pointLoop);
+      topLoop = pointLoop.getOperation();
+    }
+    bad++;
+  }
 ```
 

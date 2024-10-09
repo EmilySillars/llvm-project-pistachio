@@ -171,65 +171,83 @@ void AdHocLoopTile::constructDummyLoopNest(
   Operation *topLoop = rootAffineForOp.getOperation();
   AffineForOp innermostPointLoop;
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] location used is  "<< loc <<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] location used is  " << loc
+                          << " \n");
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] top Loop before any messing around is "<< *topLoop<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] top Loop before any messing around is "
+                          << *topLoop << " \n");
 
-  //topLoop->getBlock()->getOperations()
-  // auto& hoodle = rootAffineForOp->getBody();
-  // const auto& hoodle = rootAffineForOp->getBlock()->getOperations();
-  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] seems like the original loop body is maybe "<< hoodle[0] <<" \n");
-  //rootAffineForOp.getLoc()
+  // topLoop->getBlock()->getOperations()
+  //  auto& hoodle = rootAffineForOp->getBody();
+  //  const auto& hoodle = rootAffineForOp->getBlock()->getOperations();
+  //  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] seems like the original loop
+  //  body is maybe "<< hoodle[0] <<" \n");
+  // rootAffineForOp.getLoc()
 
   // Add intra-tile (or point) loops. (LOOPS WITHIN A TILE)
   for (unsigned i = 0; i < width; i++) {
     OpBuilder b(topLoop);
     // Loop bounds will be set later.
     AffineForOp pointLoop = b.create<AffineForOp>(loc, 0, 0);
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< i << "point loop is "<< pointLoop<<" \n");
-    
-    
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << i << "point loop is "
+                            << pointLoop << " \n");
+
     pointLoop.getBody()->getOperations().splice(
         pointLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
         topLoop);
-    
+
     tiledLoops[2 * width - 1 - i] = pointLoop;
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops["<< (2 * width - 1 - i) << "] = pointLoop; \n");
-    
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops["
+                            << (2 * width - 1 - i) << "] = pointLoop; \n");
+
     topLoop = pointLoop.getOperation();
     if (i == 0)
       innermostPointLoop = pointLoop;
   }
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] top Loop is "<< *topLoop<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] top Loop is " << *topLoop
+                          << " \n");
 
-   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] top Loop is possibly the inter-tile loops now... \n");
+  LLVM_DEBUG(
+      llvm::dbgs() << "[" DEBUG_TYPE
+                      "] top Loop is possibly the inter-tile loops now... \n");
   // I think these are the between-tile loops
 
   // Add tile space loops;
-  for (unsigned i = width; i < 2 * width; i++) { // some kind of assumption here that tiledLoops has twice the width of origloops
+  for (unsigned i = width; i < 2 * width;
+       i++) { // some kind of assumption here that tiledLoops has twice the
+              // width of origloops
     OpBuilder b(topLoop);
     // Loop bounds will be set later.
     AffineForOp tileSpaceLoop = b.create<AffineForOp>(loc, 0, 0);
-   
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< i << "tileSpaceLoop loop is "<< tileSpaceLoop<<" \n");
-   
+
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] " << i << "tileSpaceLoop loop is "
+               << tileSpaceLoop << " \n");
+
     tileSpaceLoop.getBody()->getOperations().splice(
         tileSpaceLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
         topLoop);
     tiledLoops[2 * width - i - 1] = tileSpaceLoop;
-    
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops["<< (2 * width - 1 - i) << "] = tileSpaceLoop; \n");
+
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops["
+                            << (2 * width - 1 - i) << "] = tileSpaceLoop; \n");
     topLoop = tileSpaceLoop.getOperation();
   }
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] now top Loop is "<< *topLoop<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] now top Loop is " << *topLoop
+                          << " \n");
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] innermost point loops is "<< innermostPointLoop<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] innermost point loops is "
+                          << innermostPointLoop << " \n");
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has size "<< origLoops.size() <<" and is "<< origLoops.back()<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has size "
+                          << origLoops.size() << " and is " << origLoops.back()
+                          << " \n");
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back().body() is "<< origLoops.back().getBody()<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back().body() is "
+                          << origLoops.back().getBody() << " \n");
 
   // // Move the loop body of the original nest to the new one.
   AdHocLoopTile::moveLoopBody(origLoops.back(), innermostPointLoop);
@@ -336,6 +354,6 @@ static void AdHocLoopTile::moveLoopBodyImpl(AffineForOp src, AffineForOp dest,
 
 /// Move the loop body of AffineForOp 'src' from 'src' to the start of dest
 /// body.
-static void AdHocLoopTile::moveLoopBody(AffineForOp src, AffineForOp dest) {
+void AdHocLoopTile::moveLoopBody(AffineForOp src, AffineForOp dest) {
   moveLoopBodyImpl(src, dest, dest.getBody()->begin());
 }

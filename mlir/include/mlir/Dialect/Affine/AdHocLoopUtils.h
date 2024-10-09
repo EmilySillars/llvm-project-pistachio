@@ -80,7 +80,7 @@ static void moveLoopBodyImpl(AffineForOp src, AffineForOp dest,
 
 /// Move the loop body of AffineForOp 'src' from 'src' to the start of dest
 /// body.
-static void moveLoopBody(AffineForOp src, AffineForOp dest);
+void moveLoopBody(AffineForOp src, AffineForOp dest);
 
 } // namespace AdHocLoopTile
 } // namespace affine

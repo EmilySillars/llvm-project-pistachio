@@ -50,8 +50,15 @@ struct AdHocLoopTiling
     : public affine::impl::AffineAdHocLoopTilingBase<AdHocLoopTiling> {
   AdHocLoopTiling() = default;
   void runOnOperation() override;
+  // for exploring
   LogicalResult tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
                                     SmallVectorImpl<AffineForOp> *tiledNest);
+  // for transforming
+  LogicalResult tilePerfectlyNested2(MutableArrayRef<AffineForOp> input,
+                                     SmallVectorImpl<AffineForOp> *tiledNest);
+  void constructPomegranateLoopNest(MutableArrayRef<AffineForOp> origLoops,
+                                    AffineForOp rootAffineForOp, unsigned width,
+                                    MutableArrayRef<AffineForOp> tiledLoops);
   // everything below relates to processing the tiling scheme as input
   LogicalResult initializeOptions(StringRef options) override;
   void parseTilingScheme(StringRef fileContent);
@@ -65,6 +72,7 @@ struct AdHocLoopTiling
     std::vector<std::vector<int>> bounds;
     std::vector<std::vector<int>> order;
     TilingScheme() = default;
+    unsigned totalLoopCount();
   } ts;
   friend std::stringstream &
   operator<<(std::stringstream &ss, const AdHocLoopTiling::TilingScheme &ts) {
@@ -98,6 +106,21 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 mlir::affine::createAdHocLoopTilingPass() {
   return std::make_unique<AdHocLoopTiling>();
 }
+
+unsigned AdHocLoopTiling::TilingScheme::totalLoopCount() {
+  unsigned total = 0;
+  for (const auto &bound : bounds) {
+    total += (bound.size() +
+              1); // for each loop getting tiled, count the extra affine loop
+                  // needed to calculate the first level indexing inside a tile
+  }
+  LLVM_DEBUG(
+      llvm::dbgs() << "[" DEBUG_TYPE
+                      "] total number of loops in tiled loop nest will be "
+                   << total << " \n");
+  return total;
+}
+
 /* vvvvvvvvvvvvvvvvvvvvvvvvvvvv this function was completely copy-and-pasted
  * from LoopTiling.cpp vvvvvvvvvvvvvvv*/
 /// Checks whether hyper-rectangular loop tiling of the nest represented by
@@ -178,89 +201,8 @@ void AdHocLoopTiling::runOnOperation() {
       continue;
     }
 
-    // Set up tile sizes;
-    // tile perfectly nested loops
-    // TODO: Separate full and partial tiles.
-
-    // Set up tile sizes; fill missing tile sizes at the end with default tile
-    // size or tileSize if one was provided.
-    // std::vector<std::vector<unsigned>> tileSizes;
-    // tileSizes.push_back(std::vector<unsigned>());
-    // for (auto &bound : ts.bounds) {
-    //   unsigned tileSize = 0;
-    //   // tileSizes.back().push_back(tileSize)
-    // }
-
-    // band.size();
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                         << "band size is  " << band.size() << " \n");
-
-    // for (size_t i = 0; i < band.size(); i++) {
-    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] i is " << i << "\n");
-    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                           << "band[" << i << "].getLowerBoundMap() is  "
-    //                           << band[i].getLowerBoundMap() << " \n");
-    //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                           << "band[" << i << "].getUpperBoundMap() is  "
-    //                           << band[i].getUpperBoundMap() << " \n");
-    // }
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after for loop! \n");
-
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                         << "band[0].getLowerBoundMap() is  " <<
-    //                         band[0].getLowerBoundMap() << " \n");
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                         << "band[0].getUpperBoundMap() is  " <<
-    //                         band[0].getUpperBoundMap() << " \n");
-    // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
-    //                         << "band[0].getUpperBound().getOperand(0) is  "
-    //                         << band[0].getUpperBound().getOperand(0) << "
-    //                         \n");
-    // reference code snippets
-    // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-    //     bool AffineForOp::hasConstantLowerBound() {
-    //   return getLowerBoundMap().isSingleConstant();
-    // }
-
-    // bool AffineForOp::hasConstantUpperBound() {
-    //   return getUpperBoundMap().isSingleConstant();
-    // }
-
-    // int64_t AffineForOp::getConstantLowerBound() {
-    //   return getLowerBoundMap().getSingleConstantResult();
-    // }
-
-    // int64_t AffineForOp::getConstantUpperBound() {
-    //   return getUpperBoundMap().getSingleConstantResult();
-    // }
-    // getTileSizes(band, &tileSizes); //SmallVectorImpl<unsigned> *tileSizes
-    // forOp.getLowerBoundMap()
-    //     auto *loopBody = forOp.getBody();
-    // auto indVar = forOp.getInductionVar();
-    // ValueRange iterArgs = forOp.getRegionIterArgs();
-
-    // // This is the place where hoisted instructions would reside.
-    // OpBuilder b(forOp.getOperation());
-
-    // SmallPtrSet<Operation *, 8> opsToHoist;
-    // SmallVector<Operation *, 8> opsToMove;
-    // SmallPtrSet<Operation *, 8> opsWithUsers;
-    // llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
-    //   exit(1);
-    // LLVM_DEBUG(llvm::dbgs()
-    //            << "[" DEBUG_TYPE "] "
-    //            << "the filename is  [ " << options.data() << " ]\n");
-    // reference code snippets
-    // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-    // if (llvm::DebugFlag) {
-    //   auto diag = band[0].emitRemark("using tile sizes [");
-    //   for (unsigned tSize : tileSizes)
-    //     diag << tSize << ' ';
-    //   diag << "]\n";
-    // }
     SmallVector<AffineForOp, 6> tiledNest;
-    if (failed(AdHocLoopTiling::tilePerfectlyNested(band, &tiledNest))) {
+    if (failed(AdHocLoopTiling::tilePerfectlyNested2(band, &tiledNest))) {
       // An empty band always succeeds.
       assert(!band.empty() && "guaranteed to succeed on empty bands");
       LLVM_DEBUG(band.front()->emitRemark("loop tiling failed!\n"));
@@ -282,6 +224,134 @@ void AdHocLoopTiling::runOnOperation() {
   // Operation* op = getOperation();
   // ValueRange operands = op->getOperands();
 } // end of runOnOperation
+
+LogicalResult
+AdHocLoopTiling::tilePerfectlyNested2(MutableArrayRef<AffineForOp> input,
+                                      SmallVectorImpl<AffineForOp> *tiledNest) {
+  if (input.empty())
+    return success();
+
+  // std::vector<std::vector<unsigned>> tileSizes;
+  // tileSizes.push_back(std::vector<unsigned>());
+  // for (auto &bound : ts.bounds) {
+  //   unsigned tileSize = 0;
+  //   // tileSizes.back().push_back(tileSize)
+  // }
+
+  MutableArrayRef<AffineForOp> origLoops = input;
+  AffineForOp rootAffineForOp = origLoops[0];
+
+  // We know exactly how many loops to create from the tiling scheme.
+  unsigned width = ts.totalLoopCount();
+  SmallVector<AffineForOp, 6> tiledLoops(width);
+
+  // Construct a tiled loop nest without setting their bounds. Bounds are
+  // set later.
+  AdHocLoopTiling::constructPomegranateLoopNest(origLoops, rootAffineForOp,
+                                                width, tiledLoops);
+
+  // SmallVector<Value, 8> origLoopIVs;
+  // extractForInductionVars(input, &origLoopIVs);
+
+  // for (auto& elt : origLoopIVs){
+  //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< elt<<" \n");
+
+  // }
+
+  // SmallVector<unsigned, 6> tileSizes;
+  // tileSizes.assign(input.size(), 13);
+
+  // // Set loop bounds for the tiled loop nest.
+  // AdHocLoopTile::constructTiledIndexSetHyperRect(origLoops, tiledLoops,
+  // tileSizes);
+
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after
+  // constructTiledIndexSetHyperRect... \n");
+  // // for(const auto& elt : tiledLoops){
+  // //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] elt is "<< elt<<" \n");
+  // // }
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length
+  // "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
+
+  // // Replace original IVs with intra-tile loop IVs.
+  // for (unsigned i = 0; i < width; i++)
+  //   origLoopIVs[i].replaceAllUsesWith(tiledLoops[i +
+  //   width].getInductionVar());
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] AFTER REPLACING IV'S!!! \n");
+  // LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[0] is "<<
+  // tiledLoops[0]<<" \n"); LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "]
+  // tiledLoops[tiledLoops.size()-1] is "<< tiledLoops[tiledLoops.size()-1]<<"
+  // \n"); LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has
+  // length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
+  // // Erase the old loop nest.
+  // rootAffineForOp.erase();
+
+  // if (tiledNest)
+  //   *tiledNest = std::move(tiledLoops);
+
+  return success();
+}
+
+// create a dummy loop nest around the original nested loop's body
+void AdHocLoopTiling::constructPomegranateLoopNest(
+    MutableArrayRef<AffineForOp> origLoops, AffineForOp rootAffineForOp,
+    unsigned width, MutableArrayRef<AffineForOp> tiledLoops) {
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] inside pomegranate loop nest \n");
+  Location loc = rootAffineForOp.getLoc();
+
+  // // The outermost among the loops as we add more..
+  Operation *topLoop = rootAffineForOp.getOperation();
+  AffineForOp innermostPointLoop;
+
+  // create loops in the correct order from the get-go
+  // iterate backwards (from innermost loop first) thru the tile scheme's order
+  // for(size_t i = ts.order.size()-1; i--;){
+  //   // we assume order is really a list of "tuples"
+
+  //   size_t origIndex = ts.order[i][0];
+  //   size_t subloopIndex = ts.order[i][1];
+  //   size_t tiledIndex = origIndex + tiledIndex;
+  //   unsigned bound = ts.bounds[origIndex][subloopIndex];
+
+  // }
+
+  // SmallVector<std::vector<AffineForOp>,6> subloops;
+  // subloops.assign(std::vector<AffineForOp>(), origLoops.size());
+  std::vector<std::vector<AffineForOp>> subloops;
+
+  // let's create the tiled loops level by level, and then at the end, stitch
+  // them together!
+  for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
+    std::vector<AffineForOp> subs;                // create a list of subloops
+    subloops.push_back(subs);
+    for (size_t j = 0; j < ts.bounds[i].size();
+         j++) { // for each of its subloops (which each have a bound)
+      OpBuilder b(topLoop);
+      // Loop bounds will be set NOW if possible!.
+      AffineForOp pointLoop = b.create<AffineForOp>(loc, 0, ts.bounds[i][j]);
+
+      topLoop = pointLoop.getOperation();
+      if (i == 0)
+        innermostPointLoop = pointLoop;
+      subs.push_back(pointLoop);
+    }
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] printing out my loops!  \n");
+
+  for (size_t i = 0; i < subloops.size(); i++) {
+    for (size_t j = 0; j < subloops[i].size(); j++) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] hoodle " << subloops[i][j] << " \n");
+    }
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] now top Loop is " << *topLoop
+                          << " \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] about to return from dummy loop nest \n");
+}
 
 LogicalResult
 AdHocLoopTiling::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
@@ -323,36 +393,44 @@ AdHocLoopTiling::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
 
   // // Construct a tiled loop nest without setting their bounds. Bounds are
   // // set later.
-  AdHocLoopTile::constructDummyLoopNest(origLoops, rootAffineForOp, width, tiledLoops);
-
+  AdHocLoopTile::constructDummyLoopNest(origLoops, rootAffineForOp, width,
+                                        tiledLoops);
 
   SmallVector<Value, 8> origLoopIVs;
   extractForInductionVars(input, &origLoopIVs);
 
-  for (auto& elt : origLoopIVs){
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< elt<<" \n");
-
+  for (auto &elt : origLoopIVs) {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << elt << " \n");
   }
-  
+
   SmallVector<unsigned, 6> tileSizes;
   tileSizes.assign(input.size(), 13);
- 
-  // Set loop bounds for the tiled loop nest.
-  AdHocLoopTile::constructTiledIndexSetHyperRect(origLoops, tiledLoops, tileSizes);
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after constructTiledIndexSetHyperRect... \n");
+  // Set loop bounds for the tiled loop nest.
+  AdHocLoopTile::constructTiledIndexSetHyperRect(origLoops, tiledLoops,
+                                                 tileSizes);
+
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] after constructTiledIndexSetHyperRect... \n");
   // for(const auto& elt : tiledLoops){
   //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] elt is "<< elt<<" \n");
   // }
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "
+                          << origLoops.size() << " and is " << origLoops.back()
+                          << " \n");
 
   // Replace original IVs with intra-tile loop IVs.
   for (unsigned i = 0; i < width; i++)
     origLoopIVs[i].replaceAllUsesWith(tiledLoops[i + width].getInductionVar());
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] AFTER REPLACING IV'S!!! \n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[0] is "<< tiledLoops[0]<<" \n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[tiledLoops.size()-1] is "<< tiledLoops[tiledLoops.size()-1]<<" \n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[0] is "
+                          << tiledLoops[0] << " \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] tiledLoops[tiledLoops.size()-1] is "
+                          << tiledLoops[tiledLoops.size() - 1] << " \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "
+                          << origLoops.size() << " and is " << origLoops.back()
+                          << " \n");
   // Erase the old loop nest.
   rootAffineForOp.erase();
 
