@@ -227,12 +227,12 @@ void AdHocLoopTile::constructDummyLoopNest(
 
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] innermost point loops is "<< innermostPointLoop<<" \n");
 
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() is "<< origLoops.back()<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has size "<< origLoops.size() <<" and is "<< origLoops.back()<<" \n");
 
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back().body() is "<< origLoops.back().getBody()<<" \n");
 
   // // Move the loop body of the original nest to the new one.
-  // AdHocLoopTile::moveLoopBody(origLoops.back(), innermostPointLoop);
+  AdHocLoopTile::moveLoopBody(origLoops.back(), innermostPointLoop);
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
                              "] about to return from dummy loop nest \n");
 }

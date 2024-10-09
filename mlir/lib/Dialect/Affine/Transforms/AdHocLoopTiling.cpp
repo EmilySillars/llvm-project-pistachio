@@ -333,35 +333,26 @@ AdHocLoopTiling::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,
     LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "<< elt<<" \n");
 
   }
-
   
   SmallVector<unsigned, 6> tileSizes;
   tileSizes.assign(input.size(), 13);
  
-
+  // Set loop bounds for the tiled loop nest.
   AdHocLoopTile::constructTiledIndexSetHyperRect(origLoops, tiledLoops, tileSizes);
 
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] after constructTiledIndexSetHyperRect... \n");
-  for(const auto& elt : tiledLoops){
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] elt is "<< elt<<" \n");
-  }
+  // for(const auto& elt : tiledLoops){
+  //   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] elt is "<< elt<<" \n");
+  // }
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
 
   // Replace original IVs with intra-tile loop IVs.
   for (unsigned i = 0; i < width; i++)
     origLoopIVs[i].replaceAllUsesWith(tiledLoops[i + width].getInductionVar());
-
-
-  // SmallVector<Value, 8> origLoopIVs;
-  // extractForInductionVars(input, &origLoopIVs);
-
-  // // Set loop bounds for the tiled loop nest.
-  // constructTiledIndexSetHyperRect(origLoops, tiledLoops, tileSizes);
-
-  // // Replace original IVs with intra-tile loop IVs.
-  // for (unsigned i = 0; i < width; i++)
-  //   origLoopIVs[i].replaceAllUsesWith(tiledLoops[i +
-  //   width].getInductionVar());
-
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] AFTER REPLACING IV'S!!! \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[0] is "<< tiledLoops[0]<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] tiledLoops[tiledLoops.size()-1] is "<< tiledLoops[tiledLoops.size()-1]<<" \n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
   // Erase the old loop nest.
   rootAffineForOp.erase();
 
