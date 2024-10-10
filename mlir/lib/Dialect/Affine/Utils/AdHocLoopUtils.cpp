@@ -39,15 +39,6 @@ using namespace affine;
 using namespace presburger;
 using llvm::SmallMapVector;
 
-namespace {
-// This structure is to pass and return sets of loop parameters without
-// confusing the order.
-struct LoopParams {
-  Value lowerBound;
-  Value upperBound;
-  Value step;
-};
-} // namespace
 
 // LogicalResult
 // AdHocLoopTile::tilePerfectlyNested(MutableArrayRef<AffineForOp> input,

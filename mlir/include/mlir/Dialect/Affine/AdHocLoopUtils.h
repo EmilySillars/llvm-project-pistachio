@@ -45,13 +45,26 @@ struct MemRefRegion;
 
 namespace AdHocLoopTile {
 
-struct TiledLoop{
-    AffineForOp * loop = 0; // the payload
-    std::vector<struct TiledLoop> subloops;
-    TiledLoop() = default;
-    size_t size() { return subloops.size();} 
-    // TODO: make this a union type!! or a variant type!
-    //AffineForOp& operator[](size_t index){return this->subloops[index];}   
+// This structure is used to store bound and step information about a subloop
+struct LoopParams {
+  AffineForOp* parent = 0; // 0 when subloop's parent is another subloop
+  size_t parentIndex = 0;  // used when subloop's parent is another subloop
+  size_t parentTileSize = 0;
+  size_t stepSize = 0;
+  LoopParams() = default;
+  struct LoopParams& operator=(const struct LoopParams & other){
+    parent = other.parent;
+    parentIndex = other.parentIndex;
+    parentTileSize = other.parentTileSize;
+    stepSize = other.stepSize;
+    return *this;
+  }
+  LoopParams(const struct LoopParams & other){
+    parent = other.parent;
+    parentIndex = other.parentIndex;
+    parentTileSize = other.parentTileSize;
+    stepSize = other.stepSize;
+  }
 };
 
 void constructDummyLoopNest(MutableArrayRef<AffineForOp> origLoops,
