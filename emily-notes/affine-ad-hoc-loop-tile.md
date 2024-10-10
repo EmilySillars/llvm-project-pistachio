@@ -323,3 +323,90 @@ something is very messed up here:
   }
 ```
 
+Funky:
+
+```
+  func.func @matmul104x104(%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 87 {
+    }
+    affine.for %arg3 = 0 to 104 step 8 {
+    }
+    affine.for %arg3 = 0 to 104 {
+      affine.for %arg4 = 0 to 104 {
+        affine.for %arg5 = 0 to 104 {
+          %0 = affine.load %arg0[%arg3, %arg5] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+          %1 = affine.load %arg1[%arg5, %arg4] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+          %2 = affine.load %arg2[%arg3, %arg4] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+          %3 = arith.extsi %0 : i8 to i32
+          %4 = arith.extsi %1 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %2, %5 : i32
+          affine.store %6, %arg2[%arg3, %arg4] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+
+```
+
+```
+  func.func @matmul104x104(%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 2 {
+    }
+    affine.for %arg3 = 0 to 4 {
+    }
+    affine.for %arg3 = 0 to 13 {
+    }
+    affine.for %arg3 = 0 to 13 {
+    }
+    affine.for %arg3 = 0 to 104 {
+      affine.for %arg4 = 0 to 104 {
+        affine.for %arg5 = 0 to 104 {
+          %0 = affine.load %arg0[%arg3, %arg5] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+          %1 = affine.load %arg1[%arg5, %arg4] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+          %2 = affine.load %arg2[%arg3, %arg4] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+          %3 = arith.extsi %0 : i8 to i32
+          %4 = arith.extsi %1 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %2, %5 : i32
+          affine.store %6, %arg2[%arg3, %arg4] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+
+```
+
+better:
+
+```
+  func.func @matmul104x104(%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, %arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 2 {
+      affine.for %arg4 = 0 to 4 {
+        affine.for %arg5 = 0 to 13 {
+          affine.for %arg6 = 0 to 13 {
+            affine.for %arg7 = 0 to 104 {
+              affine.for %arg8 = 0 to 104 {
+                affine.for %arg9 = 0 to 104 {
+                  %0 = affine.load %arg0[%arg7, %arg9] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                  %1 = affine.load %arg1[%arg9, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                  %2 = affine.load %arg2[%arg7, %arg8] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                  %3 = arith.extsi %0 : i8 to i32
+                  %4 = arith.extsi %1 : i8 to i32
+                  %5 = arith.muli %3, %4 : i32
+                  %6 = arith.addi %2, %5 : i32
+                  affine.store %6, %arg2[%arg7, %arg8] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  }
+
+```
+

@@ -314,98 +314,142 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   //     << "] uBound:["<< uBound<<"] \n"); tileSize = oldUBound / uBound;
 
   // CORN ON THE COB
-  for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
-    subloops.push_back(
-        std::vector<AffineForOp>()); // create a list for its subloops
-    if (i == 0) {                    // only tile the outermost loop for now
-      for (size_t j = 0; j <= ts.bounds[i].size();
-           j++) { // for each of its subloops (which each have a bound)
-        OpBuilder b(topLoop);
-        // create a loop
-        AffineForOp newLoop = b.create<AffineForOp>(loc, 0, 0);
-        // declare some properties (to be initialized inside the if-else below)
-        AffineForOp *parent = 0;
-        uint64_t parentTileSize = 0;
-        uint64_t myStepSize = 0;
-        uint64_t myGivenBound = 0;
-        AffineMap lbMap;
-        AffineMap ubMap;
-        if (j == 0) { // first subloop ever made
-          myGivenBound = ts.bounds[i][j];
-          assert(origLoops[i].hasConstantLowerBound() &&
-                 "expected input loops to have constant lower bound.");
-          parentTileSize = origLoops[i].getConstantUpperBound();
-          parent = &origLoops[i];
-          lbMap = parent->getLowerBoundMap();
-          ubMap = parent->getUpperBoundMap();
-          myStepSize = parentTileSize / myGivenBound;
-          newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
-          newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
-        } else if (j ==
-                   ts.bounds[i]
-                       .size()) { // this is the final subloop (no given bound)
-          parent = &subloops[i][j - 1];
-          parentTileSize = subloops[i][j - 1].getStepAsInt();
-          lbMap = parent->getLowerBoundMap();
-          ubMap = parent->getUpperBoundMap();
-          // lbMap = b.getDimIdentityMap();
-          // AffineExpr dim = b.getAffineDimExpr(0);
-          // ubMap = AffineMap::get(
-          // 1, 0, dim + parentTileSize);
-          myStepSize = 87;
-          // newLoop.setLowerBound(parent->getInductionVar(), lbMap);
-          // newLoop.setUpperBound(parent->getInductionVar(), ubMap);
-          newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
-          newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
-        } else { // any other subloop
-          myGivenBound = ts.bounds[i][j];
-          parent = &subloops[i][j - 1];
-          parentTileSize = subloops[i][j - 1].getStepAsInt();
-          lbMap = parent->getLowerBoundMap();
-          ubMap = parent->getUpperBoundMap();
-          myStepSize = parentTileSize / myGivenBound;
-          newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
-          newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
-        }
+  // for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
+  //   subloops.push_back(
+  //       std::vector<AffineForOp>()); // create a list for its subloops
+  //   if (i == 0) {                    // only tile the outermost loop for now
+  //     for (size_t j = 0; j <= ts.bounds[i].size();
+  //          j++) { // for each of its subloops (which each have a bound)
+  //       OpBuilder b(topLoop);
+  //       // create a loop
+  //       AffineForOp newLoop = b.create<AffineForOp>(loc, 0, 0);
+  //       // declare some properties (to be initialized inside the if-else below)
+  //       AffineForOp *parent = 0;
+  //       uint64_t parentTileSize = 0;
+  //       uint64_t myStepSize = 0;
+  //       uint64_t myGivenBound = 0;
+  //       AffineMap lbMap;
+  //       AffineMap ubMap;
+  //       if (j == 0) { // first subloop ever made
+  //         myGivenBound = ts.bounds[i][j];
+  //         assert(origLoops[i].hasConstantLowerBound() &&
+  //                "expected input loops to have constant lower bound.");
+  //         parentTileSize = origLoops[i].getConstantUpperBound();
+  //         parent = &origLoops[i];
+  //         lbMap = parent->getLowerBoundMap();
+  //         ubMap = parent->getUpperBoundMap();
+  //         myStepSize = parentTileSize / myGivenBound;
+  //         newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
+  //         newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
+  //       } else if (j ==
+  //                  ts.bounds[i]
+  //                      .size()) { // this is the final subloop (no given bound)
+  //         parent = &subloops[i][j - 1];
+  //         parentTileSize = subloops[i][j - 1].getStepAsInt();
+  //         lbMap = parent->getLowerBoundMap();
+  //         ubMap = parent->getUpperBoundMap();
+  //         // lbMap = b.getDimIdentityMap();
+  //         // AffineExpr dim = b.getAffineDimExpr(0);
+  //         // ubMap = AffineMap::get(
+  //         // 1, 0, dim + parentTileSize);
+  //         myStepSize = 87;
+  //         // newLoop.setLowerBound(parent->getInductionVar(), lbMap);
+  //         // newLoop.setUpperBound(parent->getInductionVar(), ubMap);
+  //         newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
+  //         newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
+  //       } else { // any other subloop
+  //         myGivenBound = ts.bounds[i][j];
+  //         parent = &subloops[i][j - 1];
+  //         parentTileSize = subloops[i][j - 1].getStepAsInt();
+  //         lbMap = parent->getLowerBoundMap();
+  //         ubMap = parent->getUpperBoundMap();
+  //         myStepSize = parentTileSize / myGivenBound;
+  //         newLoop.setLowerBound(parent->getLowerBoundOperands(), lbMap);
+  //         newLoop.setUpperBound(parent->getUpperBoundOperands(), ubMap);
+  //       }
 
-        LLVM_DEBUG(llvm::dbgs()
-                   << "[" DEBUG_TYPE "] parentTileSize[" << parentTileSize
-                   << "] myStepSize:[" << myStepSize << "] \n");
-        newLoop.setStep(myStepSize);
-        
+  //       LLVM_DEBUG(llvm::dbgs()
+  //                  << "[" DEBUG_TYPE "] parentTileSize[" << parentTileSize
+  //                  << "] myStepSize:[" << myStepSize << "] \n");
+  //       newLoop.setStep(myStepSize);
 
-        topLoop = newLoop.getOperation();
+  //       topLoop = newLoop.getOperation();
 
-        subloops.back().push_back(newLoop);
-      }
+  //       subloops.back().push_back(newLoop);
+  //     }
+  //   }
+  // }
+
+    for (size_t i = 0; i < subloops.size() ; i++) {
+    for (size_t j = 0; j < subloops[i].size(); j++) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] hoodle " << subloops[i][j] << " \n");
     }
   }
 
+  // let's try to manually create dependent bounds, to see if it doesn't
+  // in fact throw error only threw an error because of the order of the
+  // loops...
+  // OpBuilder b(rootAffineForOp.getOperation());
+  // AffineForOp *parent = 0;
+  // uint64_t parentTileSize = 0;
+  // AffineMap lbMap;
+  // AffineMap ubMap;
+  // parent = &subloops[0][1];
+  // parentTileSize = subloops[0][1].getStepAsInt();
+
+  // lbMap = b.getDimIdentityMap();
+  // AffineExpr dim = b.getAffineDimExpr(0);
+  // ubMap = AffineMap::get(1, 0, dim + parentTileSize);
+  // subloops[0][0].setLowerBound(parent->getInductionVar(), lbMap);
+  // subloops[0][0].setUpperBound(parent->getInductionVar(), ubMap);
+  // super wacky but maybe it will work as we want! ^^^^^^
+
   // let's create the tiled loops level by level, and then at the end, stitch
   // them together!
-  // for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
-  //   subloops.push_back(std::vector<AffineForOp>()); // create a list for its
-  //   subloops for (size_t j = 0; j < ts.bounds[i].size(); j++) {
-  //     // for each of its subloops (which each have a bound)
-  //     OpBuilder b(topLoop);
-  //     // Loop bounds will be set NOW if possible!.
-  //     AffineForOp pointLoop = b.create<AffineForOp>(loc, 0, ts.bounds[i][j]);
+  for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
+    subloops.push_back(std::vector<AffineForOp>()); // create a list for its subloops
+    for (size_t j = 0; j < ts.bounds[i].size(); j++) {
+      // for each of its subloops (which each have a bound)
+      OpBuilder b(topLoop);
+      // Loop bounds will be set NOW if possible!.
+      AffineForOp pointLoop = b.create<AffineForOp>(loc, 0, ts.bounds[i][j]);
+      pointLoop.getBody()->getOperations().splice(
+        pointLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
+        topLoop);
+      topLoop = pointLoop.getOperation();
+      if (i == 0)
+        innermostPointLoop = pointLoop;
+      subloops.back().push_back(pointLoop);
+    }
+  }
 
-  //     topLoop = pointLoop.getOperation();
-  //     if (i == 0)
-  //       innermostPointLoop = pointLoop;
-  //     subloops.back().push_back(pointLoop);
-  //   }
-  // }
+    // let's try to manually create dependent bounds, to see if it doesn't
+  // in fact throw error only threw an error because of the order of the
+  // loops...
+  OpBuilder b(rootAffineForOp.getOperation());
+  AffineForOp *parent = 0;
+  uint64_t parentTileSize = 0;
+  AffineMap lbMap;
+  AffineMap ubMap;
+  parent = &subloops[1][0];
+  parentTileSize = subloops[1][0].getStepAsInt();
+
+  lbMap = b.getDimIdentityMap();
+  AffineExpr dim = b.getAffineDimExpr(0);
+  ubMap = AffineMap::get(1, 0, dim + parentTileSize);
+  subloops[0][0].setLowerBound(parent->getInductionVar(), lbMap);
+  subloops[0][0].setUpperBound(parent->getInductionVar(), ubMap);
+  // super wacky but maybe it will work as we want! ^^^^^^
 
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
                              "] printing out my loops! subloops.size() is "
                           << subloops.size() << " \n");
 
-  for (size_t i = 0; i < subloops.size(); i++) {
+  for (size_t i = 0; i < subloops.size() ; i++) {
     for (size_t j = 0; j < subloops[i].size(); j++) {
       LLVM_DEBUG(llvm::dbgs()
-                 << "[" DEBUG_TYPE "] hoodle " << subloops[i][j] << " \n");
+                 << "[" DEBUG_TYPE "] yodel " << subloops[i][j] << " \n");
     }
   }
 
