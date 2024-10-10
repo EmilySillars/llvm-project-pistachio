@@ -11,6 +11,11 @@
    export MLIR_CPU_RUNNER_LIBS=/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/hoppip/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so
    ```
 
+My laptop version...
+```
+export PATH=/home/emily/llvm-project-pistachio/build-riscv/bin:$PATH;
+export MLIR_CPU_RUNNER_LIBS=/home/emily/llvm-project-pistachio/build-riscv/lib/libmlir_c_runner_utils.so,/home/emily/llvm-project-pistachio/build-riscv/lib/libmlir_runner_utils.so
+```
 ## I. Setup
 
 1. ```
