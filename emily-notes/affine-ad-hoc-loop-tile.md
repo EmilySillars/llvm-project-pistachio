@@ -3,6 +3,12 @@
 - [back to landing page](README.md)
 - using [my dummy mlir-opt pass](https://github.com/EmilySillars/llvm-project-pistachio/tree/learn-llvm/EMILY-NOTES/add-dummy-pass#avocado-add-a-hello-world-pass-to-mlir-opt) as reference, as well as [LoopTiling.cpp](https://github.com/EmilySillars/llvm-project-pistachio/blob/tiling/mlir/lib/Dialect/Affine/Transforms/LoopTiling.cpp)
 
+Example Run:
+
+```
+sh tile-w-adHocAffine.sh matmul104x104.mlir main out "tiling-scheme=zigzag-tile-scheme.json"
+```
+
 ## I. What are non-hyperrectangular loop nests?
 
 "loop nests whose bounds are affine functions of loop iteration variables (i.e., nonrectangular loop nests)" (Jiménez et al., 410)
@@ -100,9 +106,16 @@ func.func @matmul104x104(
 ## III. Implementation
 
 ```
-sh tile-w-adHocAffine.sh matmul104x104.mlir main out "zigzag-tile-scheme.json"
+sh tile-w-adHocAffine.sh matmul104x104.mlir main out "tiling-scheme=zigzag-tile-scheme.json"
 ```
+## IV. What about memref.subviews? Or tensor slices?
+
+Let's modify this pass so that it generates memref.subview for each tile.
+
+
+
 ## Old notes delete later
+
 Now I take in a file name, and read that file to get the tiling scheme!
 
 ```

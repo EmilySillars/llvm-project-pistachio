@@ -79,7 +79,6 @@ if [[ $1 == "-linalg" ]]; then
     # print output of run
     diff $OUT/$basename.out $CORRECT/$basename.out
 elif [[ $1 == "-affine" ]]; then
-    echo "starting with affine"
     basename=`basename $2 | sed 's/[/]*[.][^.]*$//'`
     funcname=`basename $3 | sed 's/[.][^.]*$//'`
     OUT=$4/$basename/affine
