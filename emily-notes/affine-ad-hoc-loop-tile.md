@@ -63,31 +63,30 @@ func.func @matmul104x104(
 
 ```
 #map = affine_map<(d0) -> (d0)>
-#map1 = affine_map<(d0) -> (d0 + 8)>
-#map2 = affine_map<(d0) -> (d0 + 26)>
-#map3 = affine_map<(d0) -> (d0 + 13)>
+#map1 = affine_map<(d0) -> (d0 + 26)>
+#map2 = affine_map<(d0) -> (d0 + 13)>
+#map3 = affine_map<(d0) -> (d0 + 8)>
 
-func.func @matmul104x104(
-%arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
-%arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
-%arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) 
--> memref<104x104xi32, strided<[?, ?], offset: ?>> {
-    affine.for %arg3 = 0 to 104 step 8 {
-      affine.for %arg4 = 0 to 104 step 8 {
-        affine.for %arg5 = 0 to 104 step 26 {
-          affine.for %arg6 = #map(%arg3) to #map1(%arg3) {
-            affine.for %arg7 = #map(%arg4) to #map1(%arg4) {
-              affine.for %arg8 = #map(%arg5) to #map2(%arg5) step 13{ 
-                affine.for %arg9 = #map(%arg8) to #map3(%arg8) {
-                  %0 = affine.load %arg0[%arg6, %arg9] : memref<104x104xi8, strided<[?, ?], offset: ?>>
-                  %1 = affine.load %arg1[%arg9, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
-                  %2 = affine.load %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+  func.func @matmul104x104(
+    %arg0: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+    %arg1: memref<104x104xi8, strided<[?, ?], offset: ?>>, 
+    %arg2: memref<104x104xi32, strided<[?, ?], offset: ?>>) -> memref<104x104xi32, strided<[?, ?], offset: ?>> {
+    affine.for %arg3 = 0 to 104 step 26 {
+      affine.for %arg4 = #map(%arg3) to #map1(%arg3) step 13 {
+        affine.for %arg5 = 0 to 104 step 8 {
+          affine.for %arg6 = 0 to 104 step 8 {
+            affine.for %arg7 = #map(%arg4) to #map2(%arg4) {
+              affine.for %arg8 = #map(%arg5) to #map3(%arg5) {
+                affine.for %arg9 = #map(%arg6) to #map3(%arg6) {
+                  %0 = affine.load %arg0[%arg9, %arg7] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                  %1 = affine.load %arg1[%arg7, %arg8] : memref<104x104xi8, strided<[?, ?], offset: ?>>
+                  %2 = affine.load %arg2[%arg9, %arg8] : memref<104x104xi32, strided<[?, ?], offset: ?>>
                   %3 = arith.extsi %0 : i8 to i32
                   %4 = arith.extsi %1 : i8 to i32
                   %5 = arith.muli %3, %4 : i32
                   %6 = arith.addi %2, %5 : i32
-                  affine.store %6, %arg2[%arg6, %arg7] : memref<104x104xi32, strided<[?, ?], offset: ?>>
-                } // end of hoodle for
+                  affine.store %6, %arg2[%arg9, %arg8] : memref<104x104xi32, strided<[?, ?], offset: ?>>
+                }
               }
             }
           }
@@ -95,11 +94,15 @@ func.func @matmul104x104(
       }
     }
     return %arg2 : memref<104x104xi32, strided<[?, ?], offset: ?>>
- }
+  }
 ```
 
 ## III. Implementation
 
+```
+sh tile-w-adHocAffine.sh matmul104x104.mlir main out "zigzag-tile-scheme.json"
+```
+## Old notes delete later
 Now I take in a file name, and read that file to get the tiling scheme!
 
 ```
@@ -163,9 +166,6 @@ I need to parse the json file with something inside this file:
 #include "llvm/Support/JSON.h"
 ```
 
-
-
-## Old notes delete later
 
 Checking band size for `matmul104x104-as-affine.mlir` gives
 

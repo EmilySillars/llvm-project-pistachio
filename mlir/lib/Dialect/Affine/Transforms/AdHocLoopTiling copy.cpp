@@ -30,7 +30,6 @@
 #include "llvm/Support/JSON.h" // to parse tiling scheme
 #include <fstream>             // to open tiling scheme file
 #include <optional>
-#include <sstream>
 
 namespace mlir {
 namespace affine {
@@ -92,15 +91,6 @@ struct AdHocLoopTiling
       ss << "] ";
     }
     ss << "]\n";
-    ss << "finalIndices: [ ";
-    for (const auto &sublist : ts.finalIndices) {
-      ss << "[ ";
-      for (const auto &pos : sublist) {
-        ss << " " << pos << " ";
-      }
-      ss << "] ";
-    }
-    ss << "]\n}";
     ss << "order: [ ";
     for (const auto &sublist : ts.order) {
       ss << "[ ";
@@ -327,12 +317,11 @@ AdHocLoopTiling::tilePerfectlyNested2(MutableArrayRef<AffineForOp> input,
   // tiledLoops[tiledLoops.size()-1] is "<< tiledLoops[tiledLoops.size()-1]<<"
   // \n"); LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] origLoops.back() has
   // length "<< origLoops.size()<<" and is "<< origLoops.back()<<" \n");
+  // // Erase the old loop nest.
+  // rootAffineForOp.erase();
 
-  // Erase the old loop nest.
-  rootAffineForOp.erase();
-
-  if (tiledNest)
-    *tiledNest = std::move(tiledLoops);
+  // if (tiledNest)
+  //   *tiledNest = std::move(tiledLoops);
 
   return success();
 }
@@ -371,14 +360,12 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
                "expected input loops to have constant lower bound.");
         info.parentTileSize = origLoops[i].getConstantUpperBound();
         info.parent = &origLoops[i];
-        info.ancestor = &origLoops[i];
         info.stepSize = info.parentTileSize / myGivenBound;
         subloopsInfo.back().push_back(info);
       } else if (j ==
                  ts.bounds[i]
                      .size()) { // this is the final subloop (no given bound)
         info.parent = 0;
-        info.ancestor = &origLoops[i];
         info.parentIndex = ts.finalIndices[i][j - 1];
         info.parentTileSize = subloopsInfo[i][j - 1].stepSize;
         info.stepSize = 1;
@@ -386,7 +373,6 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
       } else { // any other subloop
         myGivenBound = ts.bounds[i][j];
         info.parent = 0;
-        info.ancestor = &origLoops[i];
         info.parentIndex = ts.finalIndices[i][j - 1];
         info.parentTileSize = subloopsInfo[i][j - 1].stepSize;
         info.stepSize = info.parentTileSize / myGivenBound;
@@ -397,28 +383,6 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
                  << "[" DEBUG_TYPE "] parentTileSize[" << info.parentTileSize
                  << "] myStepSize:[" << info.stepSize << "] \n");
     }
-  }
-
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
-                             "] PRINTING OUT THE TILE SCHEME \n");
-  std::stringstream ss;
-  ss << ts;
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] " << ss.str() << " \n");
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] PRINTING OUT THE INFO LIST \n");
-
-  int funky_i = 0;
-  for (const auto &list : subloopsInfo) {
-    int funky_j = 0;
-    for (const auto &info : list) {
-      int index = (info.parent != 0) ? -1 : info.parentIndex;
-      int myIndex = ts.finalIndices[funky_i][funky_j];
-      LLVM_DEBUG(llvm::dbgs()
-                 << "[" DEBUG_TYPE "] parentTileSize[" << info.parentTileSize
-                 << "] myStepSize:[" << info.stepSize << "] myIndex[" << myIndex
-                 << "] parentIndex:[" << index << "] \n");
-      funky_j++;
-    }
-    funky_i++;
   }
 
   // create all the loops, ignoring their steps and bounds
@@ -435,129 +399,38 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
     subloops.push_back(newLoop);
   }
 
-  // Move the loop body of the original nest to the new one.
-  AdHocLoopTile::moveLoopBody(origLoops.back(), innermostPointLoop);
-
-  // annotate with correct step size
-  funky_i = 0;
-  for (const auto &list : subloopsInfo) {
-    int funky_j = 0;
-    for (const auto &info : list) {
-      int myIndex = ts.finalIndices[funky_i][funky_j];
-      subloops[myIndex].setStep(info.stepSize);
-      funky_j++;
+  for (size_t i = 0, j = 0; i < subloops.size(); i++) {
+    OpBuilder b(subloops[i].getOperation());
+    struct AdHocLoopTile::LoopParams info;
+    AffineMap lb;
+    AffineMap ub;
+    // TODO: use ternary operator
+    if (i > ts.order.size() - 1) { // reached the final group of subloops
+      info = finalSubloopsInfo[j];
+      j++;
+    } else { // processing a subloop with an assigned bound
+    LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] i is " << i << "] \n");
+      info = subloopsInfo[ts.order[i][0]][ts.order[i][1]];
     }
-    funky_i++;
+    // set step size
+    subloops[i].setStep(info.stepSize);
+    // set bounds
+    // if (!info.parent) {
+    //   AffineExpr dim = b.getAffineDimExpr(0);
+    //   lb = b.getDimIdentityMap();
+    //   ub = AffineMap::get(1, 0, dim + info.parentTileSize);
+    //   subloops[i].setLowerBound(subloops[info.parentIndex].getInductionVar(),
+    //                             lb);
+    //   subloops[i].setUpperBound(subloops[info.parentIndex].getInductionVar(),
+    //                             ub);
+    // } else {
+    //   lb = info.parent->getLowerBoundMap();
+    //   ub = info.parent->getUpperBoundMap();
+    //   subloops[i].setLowerBound(info.parent->getLowerBoundOperands(), lb);
+    //   subloops[i].setUpperBound(info.parent->getUpperBoundOperands(), ub);
+    // }
   }
-
-  // annotate with correct bounds
-  funky_i = 0;
-  for (const auto &list : subloopsInfo) {
-    int funky_j = 0;
-    for (const auto &info : list) {
-      // int index = (info.parent != 0) ? -1 : info.parentIndex;
-      int myIndex = ts.finalIndices[funky_i][funky_j];
-      OpBuilder b(subloops[myIndex]);
-      if (info.parent == 0) {
-        AffineExpr dim = b.getAffineDimExpr(0);
-        AffineMap lb = b.getDimIdentityMap();
-        AffineMap ub = AffineMap::get(1, 0, dim + info.parentTileSize);
-
-        subloops[myIndex].setLowerBound(
-            subloops[info.parentIndex].getInductionVar(), lb);
-
-        subloops[myIndex].setUpperBound(
-            subloops[info.parentIndex].getInductionVar(), ub);
-      } else {
-        AffineMap lb = info.parent->getLowerBoundMap();
-        AffineMap ub = info.parent->getUpperBoundMap();
-        subloops[myIndex].setLowerBound(info.parent->getLowerBoundOperands(),
-                                        lb);
-        subloops[myIndex].setUpperBound(info.parent->getUpperBoundOperands(),
-                                        ub);
-      }
-      funky_j++;
-    }
-    funky_i++;
-  }
-
-  // annotate the REST of the loops with correct bounds
-  for (size_t i = 0; i < finalSubloopsInfo.size(); i++) {
-    int myIndex = i;
-    struct AdHocLoopTile::LoopParams info = finalSubloopsInfo[i];
-    OpBuilder b(subloops[myIndex]);
-    if (info.parent == 0) {
-      AffineExpr dim = b.getAffineDimExpr(0);
-      AffineMap lb = b.getDimIdentityMap();
-      AffineMap ub = AffineMap::get(1, 0, dim + info.parentTileSize);
-
-      subloops[myIndex].setLowerBound(
-          subloops[info.parentIndex].getInductionVar(), lb);
-
-      subloops[myIndex].setUpperBound(
-          subloops[info.parentIndex].getInductionVar(), ub);
-    } else {
-      AffineMap lb = info.parent->getLowerBoundMap();
-      AffineMap ub = info.parent->getUpperBoundMap();
-      subloops[myIndex].setLowerBound(info.parent->getLowerBoundOperands(), lb);
-      subloops[myIndex].setUpperBound(info.parent->getUpperBoundOperands(), ub);
-    }
-  }
-
-  // replace body variables with new corresponding loop vars
-  // SmallVector<Value, 8> origLoopIVs;
-  // extractForInductionVars(origLoops, &origLoopIVs);
-  for (size_t i = 0; i < finalSubloopsInfo.size(); i++) {
-    int myIndex = i;
-    struct AdHocLoopTile::LoopParams info = finalSubloopsInfo[i];
-    info.ancestor->getInductionVar().replaceAllUsesWith(
-        subloops[myIndex].getInductionVar());
-  }
-
-  // copy subloops into tiledLoops
-  for (size_t i = 0; i < subloops.size(); i++) {
-    tiledLoops[i] = subloops[i];
-  }
-
-  // Replace original IVs with intra-tile loop IVs.
-  // for (unsigned i = 0; i < width; i++)
-  //   origLoopIVs[i].replaceAllUsesWith(tiledLoops[i +
-  //   width].getInductionVar());
-
-  // for (size_t i = 0, j = 0; i < subloops.size(); i++) {
-  //   OpBuilder b(subloops[i].getOperation());
-  //   struct AdHocLoopTile::LoopParams info;
-  //   AffineMap lb;
-  //   AffineMap ub;
-  //   // TODO: use ternary operator
-  //   if (i > ts.order.size() - 1) { // reached the final group of subloops
-  //     info = finalSubloopsInfo[j];
-  //     j++;
-  //   } else { // processing a subloop with an assigned bound
-  //   LLVM_DEBUG(llvm::dbgs()
-  //                << "[" DEBUG_TYPE "] i is " << i << "] \n");
-  //     info = subloopsInfo[ts.order[i][0]][ts.order[i][1]];
-  //   }
-  //   // set step size
-  //   subloops[i].setStep(info.stepSize);
-  //   // set bounds
-  //   // if (!info.parent) {
-  //   //   AffineExpr dim = b.getAffineDimExpr(0);
-  //   //   lb = b.getDimIdentityMap();
-  //   //   ub = AffineMap::get(1, 0, dim + info.parentTileSize);
-  //   //
-  //   subloops[i].setLowerBound(subloops[info.parentIndex].getInductionVar(),
-  //   //                             lb);
-  //   //
-  //   subloops[i].setUpperBound(subloops[info.parentIndex].getInductionVar(),
-  //   //                             ub);
-  //   // } else {
-  //   //   lb = info.parent->getLowerBoundMap();
-  //   //   ub = info.parent->getUpperBoundMap();
-  //   //   subloops[i].setLowerBound(info.parent->getLowerBoundOperands(), lb);
-  //   //   subloops[i].setUpperBound(info.parent->getUpperBoundOperands(), ub);
-  //   // }
-  // }
 
   for (size_t j = 0; j < subloops.size(); j++) {
     LLVM_DEBUG(llvm::dbgs()

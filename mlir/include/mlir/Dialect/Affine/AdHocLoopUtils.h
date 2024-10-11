@@ -48,23 +48,24 @@ namespace AdHocLoopTile {
 // This structure is used to store bound and step information about a subloop
 struct LoopParams {
   AffineForOp* parent = 0; // 0 when subloop's parent is another subloop
+  AffineForOp* ancestor = 0; // 0 when subloop's parent is another subloop
   size_t parentIndex = 0;  // used when subloop's parent is another subloop
   size_t parentTileSize = 0;
   size_t stepSize = 0;
   LoopParams() = default;
-  struct LoopParams& operator=(const struct LoopParams & other){
-    parent = other.parent;
-    parentIndex = other.parentIndex;
-    parentTileSize = other.parentTileSize;
-    stepSize = other.stepSize;
-    return *this;
-  }
-  LoopParams(const struct LoopParams & other){
-    parent = other.parent;
-    parentIndex = other.parentIndex;
-    parentTileSize = other.parentTileSize;
-    stepSize = other.stepSize;
-  }
+  // struct LoopParams& operator=(const struct LoopParams & other){
+  //   parent = other.parent;
+  //   parentIndex = other.parentIndex;
+  //   parentTileSize = other.parentTileSize;
+  //   stepSize = other.stepSize;
+  //   return *this;
+  // }
+  // LoopParams(const struct LoopParams & other){
+  //   parent = other.parent;
+  //   parentIndex = other.parentIndex;
+  //   parentTileSize = other.parentTileSize;
+  //   stepSize = other.stepSize;
+  // }
 };
 
 void constructDummyLoopNest(MutableArrayRef<AffineForOp> origLoops,
