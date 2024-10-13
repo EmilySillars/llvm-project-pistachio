@@ -300,12 +300,12 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   AffineForOp innermostPointLoop;
 
   std::vector<AffineForOp> subloops;
-  std::vector<std::vector<struct AdHocLoopTile::LoopParams>> subloopsInfo;
-  std::vector<struct AdHocLoopTile::LoopParams> finalSubloopsInfo;
+  std::vector<std::vector<struct AdHocLoopTile::LoopParams>> intratileLoopsInfo;
+  std::vector<struct AdHocLoopTile::LoopParams> interTileLoopsInfo;
 
   // Record information about the subloops we will create
   for (size_t i = 0; i < origLoops.size(); i++) { // for each original loop
-    subloopsInfo.push_back(
+    intratileLoopsInfo.push_back(
         std::vector<struct AdHocLoopTile::LoopParams>()); // create a list for
                                                           // its subloops
     for (size_t j = 0; j <= ts.bounds[i].size();
@@ -323,24 +323,24 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
         info.parent = &origLoops[i];
         info.ancestor = &origLoops[i];
         info.stepSize = info.parentTileSize / myGivenBound;
-        subloopsInfo.back().push_back(info);
+        intratileLoopsInfo.back().push_back(info);
       } else if (j ==
                  ts.bounds[i]
-                     .size()) { // this is the final subloop (no given bound)
+                     .size()) { // this is an inter-tile subloop (no given bound)
         info.parent = 0;
         info.ancestor = &origLoops[i];
         info.parentIndex = ts.finalIndices[i][j - 1];
-        info.parentTileSize = subloopsInfo[i][j - 1].stepSize;
+        info.parentTileSize = intratileLoopsInfo[i][j - 1].stepSize;
         info.stepSize = 1;
-        finalSubloopsInfo.push_back(info);
+        interTileLoopsInfo.push_back(info);
       } else { // any other subloop
         myGivenBound = ts.bounds[i][j];
         info.parent = 0;
         info.ancestor = &origLoops[i];
         info.parentIndex = ts.finalIndices[i][j - 1];
-        info.parentTileSize = subloopsInfo[i][j - 1].stepSize;
+        info.parentTileSize = intratileLoopsInfo[i][j - 1].stepSize;
         info.stepSize = info.parentTileSize / myGivenBound;
-        subloopsInfo.back().push_back(info);
+        intratileLoopsInfo.back().push_back(info);
       }
 
       LLVM_DEBUG(llvm::dbgs()
@@ -357,7 +357,7 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] PRINTING OUT THE INFO LIST \n");
 
   int funky_i = 0;
-  for (const auto &list : subloopsInfo) {
+  for (const auto &list : intratileLoopsInfo) {
     int funky_j = 0;
     for (const auto &info : list) {
       int index = (info.parent != 0) ? -1 : info.parentIndex;
@@ -390,7 +390,7 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
 
   // annotate loops with correct step size
   funky_i = 0;
-  for (const auto &list : subloopsInfo) {
+  for (const auto &list : intratileLoopsInfo) {
     int funky_j = 0;
     for (const auto &info : list) {
       int myIndex = ts.finalIndices[funky_i][funky_j];
@@ -402,7 +402,7 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
 
   // annotate intra-tile loops with correct bounds
   funky_i = 0;
-  for (const auto &list : subloopsInfo) {
+  for (const auto &list : intratileLoopsInfo) {
     int funky_j = 0;
     for (const auto &info : list) {
       // int index = (info.parent != 0) ? -1 : info.parentIndex;
@@ -432,9 +432,9 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   }
 
   // annotate inter-loops with correct bounds
-  for (size_t i = 0; i < finalSubloopsInfo.size(); i++) {
+  for (size_t i = 0; i < interTileLoopsInfo.size(); i++) {
     int myIndex = i;
-    struct AdHocLoopTile::LoopParams info = finalSubloopsInfo[i];
+    struct AdHocLoopTile::LoopParams info = interTileLoopsInfo[i];
     OpBuilder b(subloops[myIndex]);
     if (info.parent == 0) {
       AffineExpr dim = b.getAffineDimExpr(0);
@@ -455,9 +455,9 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   }
 
   // replace body variables with new corresponding loop vars
-  for (size_t i = 0; i < finalSubloopsInfo.size(); i++) {
+  for (size_t i = 0; i < interTileLoopsInfo.size(); i++) {
     int myIndex = i;
-    struct AdHocLoopTile::LoopParams info = finalSubloopsInfo[i];
+    struct AdHocLoopTile::LoopParams info = interTileLoopsInfo[i];
     info.ancestor->getInductionVar().replaceAllUsesWith(
         subloops[myIndex].getInductionVar());
   }

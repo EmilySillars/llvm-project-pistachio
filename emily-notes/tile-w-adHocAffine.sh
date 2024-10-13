@@ -5,7 +5,7 @@ else
     basename=`basename $1 | sed 's/[/]*[.][^.]*$//'`
     funcname=`basename $2 | sed 's/[.][^.]*$//'`
     OUT=$3/$basename/tiling
-    CORRECT=correct/
+    CORRECT=correct
     options=$4
     mkdir -p $OUT
 
@@ -35,11 +35,12 @@ else
     tail $OUT/$basename.log
     
     # run our only regression test xD
+    # which relies on us SPECIFICALLY running matmul104x104 with zigzag-tile-scheme.json
     command
     status=$?
     
     ## 1. Run the diff command ##
-    cmd="diff $OUT/$basename-after-tiling.mlir $CORRECT/affine-ad-hoc-loop-tile/$basename-scheme2.mlir"
+    cmd="diff $OUT/$basename-after-tiling.mlir $CORRECT/affine-ad-hoc-loop-tile/$basename-scheme.mlir"
     $cmd
     
     ## 2. Get exist status  and store into '$status' var ##

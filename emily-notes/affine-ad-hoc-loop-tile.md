@@ -111,8 +111,11 @@ sh tile-w-adHocAffine.sh matmul104x104.mlir main out "tiling-scheme=zigzag-tile-
 ## IV. What about memref.subviews? Or tensor slices?
 
 Let's modify this pass so that it generates memref.subview for each tile.
-
-
+My shortcuts:
+```
+cd ../build-riscv;clear; ninja -j 20
+cd ../emily-notes/;clear;sh tile-w-adHocAffine.sh matmul104x104.mlir main out "tiling-scheme=zigzag-tile-scheme.json"
+```
 
 ## Old notes delete later
 
