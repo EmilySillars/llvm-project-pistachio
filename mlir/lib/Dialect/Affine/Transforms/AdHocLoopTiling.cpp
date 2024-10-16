@@ -375,6 +375,47 @@ void AdHocLoopTiling::constructPomegranateLoopNest(
   for (size_t i = 0; i < ts.totalLoopCount; i++) {
     OpBuilder b(topLoop);
     AffineForOp newLoop = b.create<AffineForOp>(loc, 0, i);
+
+    // delete after I've learned what I need to know vvvvvv
+    if (i == 4){ // insert a bogus memref.subview and memref aloca
+    // auto bufferType = MemRefType::get({}, xferOp.getVectorType());
+    // result.dataBuffer = b.create<memref::AllocaOp>(loc, bufferType);
+    // how do I know which argument to copy? How do I know which ssa value refers to which operand?
+    // maybe I need to pull out the operands from the original loop body?
+    // how can I assume I have a multiply accumulate? Do i need to verify the body contains a MAC +
+    // the loop iteration variable of each affineForOP does indeed index into a matrix?
+    // I basically need to know which IVs index into which argument, and then take a subview accordingly.
+    
+    /* FOR REFERENCE...
+    template <typename OpTy>
+      static BufferAllocs allocBuffers(OpBuilder &b, OpTy xferOp) {
+        Location loc = xferOp.getLoc();
+        OpBuilder::InsertionGuard guard(b);
+        Operation *scope = getAutomaticAllocationScope(xferOp);
+        assert(scope->getNumRegions() == 1 &&
+              "AutomaticAllocationScope with >1 regions");
+        b.setInsertionPointToStart(&scope->getRegion(0).front());
+
+        BufferAllocs result;
+        auto bufferType = MemRefType::get({}, xferOp.getVectorType());
+        result.dataBuffer = b.create<memref::AllocaOp>(loc, bufferType);
+
+        if (xferOp.getMask()) {
+          auto maskType = MemRefType::get({}, xferOp.getMask().getType());
+          auto maskBuffer = b.create<memref::AllocaOp>(loc, maskType);
+          b.setInsertionPoint(xferOp);
+          b.create<memref::StoreOp>(loc, xferOp.getMask(), maskBuffer);
+          result.maskBuffer = b.create<memref::LoadOp>(loc, maskBuffer, ValueRange());
+        }
+
+        return result;
+      }    
+    
+    */
+
+    }
+    // delete after I've learned what I need to know ^^^^^^
+
     newLoop.getBody()->getOperations().splice(
         newLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
         topLoop);

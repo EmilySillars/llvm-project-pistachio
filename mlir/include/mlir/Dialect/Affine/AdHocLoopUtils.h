@@ -53,19 +53,6 @@ struct LoopParams {
   size_t parentTileSize = 0;
   size_t stepSize = 0;
   LoopParams() = default;
-  // struct LoopParams& operator=(const struct LoopParams & other){
-  //   parent = other.parent;
-  //   parentIndex = other.parentIndex;
-  //   parentTileSize = other.parentTileSize;
-  //   stepSize = other.stepSize;
-  //   return *this;
-  // }
-  // LoopParams(const struct LoopParams & other){
-  //   parent = other.parent;
-  //   parentIndex = other.parentIndex;
-  //   parentTileSize = other.parentTileSize;
-  //   stepSize = other.stepSize;
-  // }
 };
 
 void constructDummyLoopNest(MutableArrayRef<AffineForOp> origLoops,

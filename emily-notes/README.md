@@ -52,17 +52,17 @@ export MLIR_CPU_RUNNER_LIBS=/home/emily/llvm-project-pistachio/build-riscv/lib/l
 1. `mlir-opt --help | tile`:
 
    ```
-         --affine-loop-tile                                     -   Tile affine loop nests
-           --cache-size=<ulong>                                 - Set size of cache to tile for in KiB (default: 512)
-           --separate                                           - Separate full and partial tiles (default: false)
-           --tile-size=<uint>                                   - Use this tile size for all loops
-           --tile-sizes=<uint>                                  - List of tile sizes for each perfect nest (overridden by -tile-size)
-         --allocate-arm-sme-tiles                               -   Allocate SME tiles
-           --parallel-loop-tile-sizes=<long>                    - Factors to tile parallel loops by
-         --test-affine-parametric-tile                          -   Tile affine loops using SSA values as tile sizes
-           --loop-type=<string>                                 - Specify the type of loops to generate: for, parallel or tiled_loop
-           --peeled-loops=<long>                                - Loops to be peeled when test-tile-pattern
-           --tile-sizes=<long>                                  - Linalg tile sizes for test-tile-pattern
+   --affine-loop-tile                                     -   Tile affine loop nests
+   --cache-size=<ulong>                                 - Set size of cache to tile for in KiB (default: 512)
+   --separate                                           - Separate full and partial tiles (default: false)
+   --tile-size=<uint>                                   - Use this tile size for all loops
+   --tile-sizes=<uint>                                  - List of tile sizes for each perfect nest (overridden by -tile-size)
+   --allocate-arm-sme-tiles                               -   Allocate SME tiles
+   --parallel-loop-tile-sizes=<long>                    - Factors to tile parallel loops by
+   --test-affine-parametric-tile                          -   Tile affine loops using SSA values as tile sizes
+   --loop-type=<string>                                 - Specify the type of loops to generate: for, parallel or tiled_loop
+   --peeled-loops=<long>                                - Loops to be peeled when test-tile-pattern
+   --tile-sizes=<long>                                  - Linalg tile sizes for test-tile-pattern
    
    ```
 
@@ -71,9 +71,9 @@ export MLIR_CPU_RUNNER_LIBS=/home/emily/llvm-project-pistachio/build-riscv/lib/l
 2. `mlir-opt --help | grep tiling`:
 
    ```
-         --scf-parallel-loop-tiling                             -   Tile parallel loops
-           --no-min-max-bounds                                  - Perform tiling with fixed upper bound with inbound check inside the internal loops
-         --test-extract-fixed-outer-loops                       -   test application of parametric tiling to the outer loops so that the ranges of outer loops become static
+   --scf-parallel-loop-tiling                             -   Tile parallel loops
+     --no-min-max-bounds                                  - Perform tiling with fixed upper bound with inbound check inside the internal loops
+     --test-extract-fixed-outer-loops                       -   test application of parametric tiling to the outer loops so that the ranges of outer loops become static
    ```
 
 3. `mlir-opt --help | grep linalg`:
@@ -154,7 +154,15 @@ export MLIR_CPU_RUNNER_LIBS=/home/emily/llvm-project-pistachio/build-riscv/lib/l
 
 Looks like linalg level tiling is hiding inside the transform dialect passes!!
 
-### linalg-tiling?
+## II.a linalg-tiling? YES!!!! Hiding inside the scf dialect libary funcs!
+
+#include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
+
+Let's tile linalg matmul according to ZigZag standards!
+
+[Custom pass documentation here](scf-linalg-loop-tile.md)
+
+#### Linalg + Transform Dialect??
 
 Files of interest:
 
