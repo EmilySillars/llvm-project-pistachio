@@ -11,6 +11,16 @@
 
 include "mlir/Pass/PassBase.td"
 
+def ZigzagTiling : Pass<"zigzag-tile", ""> {
+  let summary = "Use ZigZag tiling scheme to optimize linalg operations.";
+  let constructor = "mlir::createZigzagTilingPass()";
+  let options = [
+    Option<"tilingScheme", "tiling-scheme", "std::string", /*default=*/"",
+           "Name of a JSON file specifying loop bounds and order.">,
+  ];
+  let dependentDialects = ["linalg::LinalgDialect", "tensor::TensorDialect"];
+}
+
 def ConvertElementwiseToLinalg : Pass<"convert-elementwise-to-linalg", ""> {
   let summary = "Convert ElementwiseMappable ops to linalg";
   let description = [{

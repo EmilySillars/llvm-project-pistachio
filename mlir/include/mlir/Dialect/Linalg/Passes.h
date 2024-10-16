@@ -14,6 +14,7 @@
 #define MLIR_DIALECT_LINALG_PASSES_H_
 
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/Linalg/Transforms/ZigzagTiling.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Pass/Pass.h"
 
@@ -28,6 +29,8 @@ struct OneShotBufferizationOptions;
 
 #define GEN_PASS_DECL
 #include "mlir/Dialect/Linalg/Passes.h.inc"
+
+std::unique_ptr<Pass> createZigzagTilingPass();
 
 std::unique_ptr<Pass> createConvertElementwiseToLinalgPass();
 

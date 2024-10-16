@@ -27,7 +27,7 @@ export MLIR_CPU_RUNNER_LIBS=/home/emily/llvm-project-pistachio/build-riscv/lib/l
    ```
 
 3. ```
-   cd build-rsicv
+   cd build-riscv
    ```
 
 4. ```
@@ -157,6 +157,12 @@ Looks like linalg level tiling is hiding inside the transform dialect passes!!
 ## II.a linalg-tiling? YES!!!! Hiding inside the scf dialect libary funcs!
 
 #include "mlir/Dialect/SCF/Transforms/TileUsingInterface.h"
+
+Why was the tiling pass removed?? It used to be included! https://reviews.llvm.org/D132838#change-qKTQmvKpdxGM
+
+https://discourse.llvm.org/t/mlir-linalg-is-tiling-of-linalg-fill-implemented-now/80963
+
+
 
 Let's tile linalg matmul according to ZigZag standards!
 

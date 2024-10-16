@@ -4,11 +4,12 @@
 - using [my dummy mlir-opt pass](https://github.com/EmilySillars/llvm-project-pistachio/tree/learn-llvm/EMILY-NOTES/add-dummy-pass#avocado-add-a-hello-world-pass-to-mlir-opt) as reference, as well as [my ad-hoc affine tiling pass](affine-ad-hoc-loop-tile.md)
 - [also good reference](../mlir/test/lib/Dialect/Linalg/TestLinalgTransforms.cpp)
 - [this one too](../mlir/lib/Dialect/Linalg/Transforms/DecomposeLinalgOps.cpp)
+- [this one uses a pattern rewriter](../mlir/include/mlir/Dialect/Shape/Transforms/Passes.h); here is its [pass definition](../mlir/lib/Dialect/Shape/Transforms/RemoveShapeConstraints.cpp)
 
 Example Run:
 
 ```
-TODO
+clear;mlir-opt --zigzag-tile=tiling-scheme=zigzag-tile-scheme.json matmul104x104-as-affine.mlir --debug --mlir-disable-threading &> temp && cat temp | grep zigzag && rm temp
 ```
 
 ## I. Hoodle
