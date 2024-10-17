@@ -110,47 +110,6 @@ AdHocLoopTile::performPreTilingChecks(MutableArrayRef<AffineForOp> input,
   return success();
 }
 
-/// Constructs tiled loop nest, without setting the loop bounds and move the
-/// body of the original loop nest to the tiled loop nest.
-static void AdHocLoopTile::constructTiledLoopNest(
-    MutableArrayRef<AffineForOp> origLoops, AffineForOp rootAffineForOp,
-    unsigned width, MutableArrayRef<AffineForOp> tiledLoops) {
-  Location loc = rootAffineForOp.getLoc();
-
-  // The outermost among the loops as we add more..
-  Operation *topLoop = rootAffineForOp.getOperation();
-  AffineForOp innermostPointLoop;
-
-  // Add intra-tile (or point) loops.
-  for (unsigned i = 0; i < width; i++) {
-    OpBuilder b(topLoop);
-    // Loop bounds will be set later.
-    AffineForOp pointLoop = b.create<AffineForOp>(loc, 0, 0);
-    pointLoop.getBody()->getOperations().splice(
-        pointLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
-        topLoop);
-    tiledLoops[2 * width - 1 - i] = pointLoop;
-    topLoop = pointLoop.getOperation();
-    if (i == 0)
-      innermostPointLoop = pointLoop;
-  }
-
-  // Add tile space loops;
-  for (unsigned i = width; i < 2 * width; i++) {
-    OpBuilder b(topLoop);
-    // Loop bounds will be set later.
-    AffineForOp tileSpaceLoop = b.create<AffineForOp>(loc, 0, 0);
-    tileSpaceLoop.getBody()->getOperations().splice(
-        tileSpaceLoop.getBody()->begin(), topLoop->getBlock()->getOperations(),
-        topLoop);
-    tiledLoops[2 * width - i - 1] = tileSpaceLoop;
-    topLoop = tileSpaceLoop.getOperation();
-  }
-
-  // Move the loop body of the original nest to the new one.
-  AdHocLoopTile::moveLoopBody(origLoops.back(), innermostPointLoop);
-}
-
 // create a dummy loop nest around the original nested loop's body
 void AdHocLoopTile::constructDummyLoopNest(
     MutableArrayRef<AffineForOp> origLoops, AffineForOp rootAffineForOp,

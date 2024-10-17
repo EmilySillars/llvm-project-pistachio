@@ -162,11 +162,13 @@ Why was the tiling pass removed?? It used to be included! https://reviews.llvm.o
 
 https://discourse.llvm.org/t/mlir-linalg-is-tiling-of-linalg-fill-implemented-now/80963
 
+https://discourse.llvm.org/t/mlir-linalg-is-tiling-of-linalg-fill-implemented-now/80963/3
 
+## II.b zigzag custom linalg tiling pass 
 
 Let's tile linalg matmul according to ZigZag standards!
 
-[Custom pass documentation here](scf-linalg-loop-tile.md)
+[Custom pass documentation here](zigzag-tile.md)
 
 #### Linalg + Transform Dialect??
 

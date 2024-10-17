@@ -66,10 +66,7 @@ template <typename t>
 static LogicalResult performPreTilingChecks(MutableArrayRef<AffineForOp> input,
                                             ArrayRef<t> tileSizes);
 // copied from LoopUtils.cpp and LoopTiling.cpp
-static void constructTiledLoopNest(MutableArrayRef<AffineForOp> origLoops,
-                                   AffineForOp rootAffineForOp, unsigned width,
-                                   MutableArrayRef<AffineForOp> tiledLoops);
-// static bool checkTilingLegality(MutableArrayRef<AffineForOp> origLoops);
+
 void
 constructTiledIndexSetHyperRect(MutableArrayRef<AffineForOp> origLoops,
                                 MutableArrayRef<AffineForOp> newLoops,
