@@ -34,20 +34,24 @@ namespace mlir {
 namespace linalg {
 
 namespace zigzag {
-template <typename Range>
-static LogicalResult
-// based on testTilingInterfaceTransformOps.cpp
-applyTileAndFuseToAll(RewriterBase &rewriter, Operation *transformOp,
-                      Range &&payloadOps, unsigned numLoops,
-                      ArrayRef<OpFoldResult> tileSizes,
-                      ArrayRef<int64_t> interchange, bool useForall,
-                      transform::TransformResults &transformResults);
+// template <typename Range>
+// static LogicalResult
+// // based on testTilingInterfaceTransformOps.cpp
+// applyTileAndFuseToAll(RewriterBase &rewriter, Operation *transformOp,
+//                       Range &&payloadOps, unsigned numLoops,
+//                       ArrayRef<OpFoldResult> tileSizes,
+//                       ArrayRef<int64_t> interchange, bool useForall,
+//                       transform::TransformResults &transformResults);
 
-// based con Quidditch func
-static LogicalResult
-applyTileAndFuseToEachRoot(RewriterBase &rewriter,
-                           llvm::SmallDenseSet<TilingInterface> &payloadOps,
-                           int tilingLevel);
+// // based con Quidditch func
+// static LogicalResult
+// applyTileAndFuseToEachRoot(RewriterBase &rewriter,
+//                            llvm::SmallDenseSet<TilingInterface> &payloadOps,
+//                            int tilingLevel);
+
+// SmallVector<OpFoldResult>
+// ZigZagTileSizeComputation(OpBuilder &builder, Operation *operation, ArrayRef<ArrayRef<int64_t>> tileSizes);
+
 
 } // namespace zigzag
 } // namespace linalg

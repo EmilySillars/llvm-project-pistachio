@@ -91,6 +91,90 @@ Next Steps:
 - understand dominance info and the other steps inside `applyTileAndFuseToEachRoot` and `applyTileAndFuseToAll`
 - what is a minimal `SCFTilingOptions` struct initialization I can fill out in order to tile my example matmul?
 
+Some notes:
+```
+     tilingOptions.setTileSizeComputationFunction(
+          [&](OpBuilder &builder, auto &&...) {
+            SmallVector<OpFoldResult> result;
+
+            SmallVector<int64_t> l1Tiles(loweringConfig.getL1Tiles());
+            for (int64_t value : l1Tiles)
+              result.push_back(builder.getIndexAttr(value));
+
+            size_t numLoops = tilingInterfaceOp.getLoopIteratorTypes().size();
+            while (result.size() < numLoops)
+              result.push_back(builder.getIndexAttr(0));
+
+            return result;
+          });
+```
+
+More notes:
+
+```
+static SmallVector<OpFoldResult>
+threadTileSizeComputation(OpBuilder &builder, Operation *operation) {
+  SmallVector<OpFoldResult> result;
+
+  std::optional<IntegerAttr> attr = getConfigIntegerAttr(
+      IREE::HAL::ExecutableTargetAttr::lookup(operation), "compute_cores");
+  if (!attr)
+    return result;
+
+  auto computeOp = cast<TilingInterface>(operation);
+  std::optional<unsigned> largestParallelDim;
+  std::optional<int64_t> largestParallelSize;
+  for (auto [iterType, range] :
+       llvm::zip_equal(computeOp.getLoopIteratorTypes(),
+                       computeOp.getIterationDomain(builder))) {
+    // Not doing reduction tiling.
+    if (iterType == utils::IteratorType::reduction) {
+      result.push_back(builder.getIndexAttr(0));
+      continue;
+    }
+
+    // Not tileable.
+    if (getConstantIntValue(range.size) == 1) {
+      result.push_back(builder.getIndexAttr(0));
+      continue;
+    }
+
+    // Not tiling dynamic dimensions right now.
+    std::optional<int64_t> size = getConstantIntValue(range.size);
+    if (!size) {
+      result.push_back(builder.getIndexAttr(0));
+      continue;
+    }
+
+    if (!largestParallelSize || size > largestParallelSize) {
+      largestParallelDim = result.size();
+      largestParallelSize = size;
+    }
+
+    // Placeholder for later.
+    result.push_back(builder.getIndexAttr(0));
+  }
+
+  if (largestParallelDim) {
+    assert(largestParallelSize);
+    result[*largestParallelDim] = builder.getIndexAttr(llvm::divideCeil(
+        *largestParallelSize, attr->getValue().getSExtValue()));
+  }
+  return result;
+}
+
+```
+
+Need to set our own tileSizeComputation function!
+
+For now, assume that the linalg op has the same number of loops as the list of tilesizes?
+
+Incorporate json parsing now?
+
+Is there a way to do this super simply instead of parsing json for the moment, so we can at least see what we get out when calling the tiling func?
+
+Yes. just set the tile sizes to a list of numbers defined as magic numbers.
+
 ## IV. What about memref.subviews? Or tensor slices?
 
 ## Old notes delete later
