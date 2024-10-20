@@ -994,6 +994,8 @@ mlir::scf::tileConsumerAndFuseProducersUsingSCF(
   // This transformation is only valid for ops that return values (i.e. not
   // valid to use with operations that have memref operands).
   if (!consumer->getNumResults()) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] Problem! this for op does not have any results! zippy \n");
     return rewriter.notifyMatchFailure(
         consumer, "invalid pattern for op with no results");
   }

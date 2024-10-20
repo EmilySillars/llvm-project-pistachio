@@ -121,7 +121,7 @@ def ZigzagTiling : InterfacePass<"zigzag-tile", "FunctionOpInterface"> {
     Option<"tilingScheme", "tiling-scheme", "std::string", /*default=*/"",
            "Name of a JSON file specifying loop bounds and order.">,
   ];
-  let dependentDialects = ["linalg::LinalgDialect", "tensor::TensorDialect"];
+  let dependentDialects = ["linalg::LinalgDialect", "tensor::TensorDialect", "scf::SCFDialect"];
 }
 
 def LinalgDetensorize : InterfacePass<"linalg-detensorize", "FunctionOpInterface"> {

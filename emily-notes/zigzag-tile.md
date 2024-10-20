@@ -17,10 +17,30 @@ Running, but only to see debugging output:
 ```
 clear;mlir-opt matmul104x104-as-generic-linalg.mlir -pass-pipeline='builtin.module(func.func(zigzag-tile{tiling-scheme=zigzag-tile-scheme.json}))' --debug --mlir-disable-threading | head -n -54
 ```
-
-
-
 ## I. Hoodle
+Helpful notes for Emily:
+```
+cd ../build-riscv; clear; ninja -j 20
+```
+```
+cd ../emily-notes;clear;mlir-opt matmul104x104-as-generic-linalg.mlir -pass-pipeline='builtin.module(func.func(zigzag-tile{tiling-scheme=zigzag-tile-scheme.json}))' --debug --mlir-disable-threading | head -n -54
+```
+For reference:
+```
+/// Transformation information returned after tile and fuse.
+struct SCFTileAndFuseResult {
+  /// List of untiled operations that were fused with the tiled consumer.
+  llvm::SetVector<Operation *> fusedProducers;
+  /// List of tiled and fused operations generated. The first one in this list
+  /// is guaranteed to be the tiled operations generated during tiling of the
+  /// generated operation.
+  llvm::SetVector<Operation *> tiledAndFusedOps;
+  /// The `scf.for` operations that iterate over the tiles.
+  SmallVector<LoopLikeOpInterface> loops;
+  /// The replacement values to use for the tiled and fused operations.
+  llvm::DenseMap<Value, Value> replacements;
+};
+```
 
 ## II. Motivating Example
 
