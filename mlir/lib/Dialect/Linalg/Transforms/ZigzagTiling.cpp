@@ -97,6 +97,60 @@ void ZigzagTiling::runOnOperation() {
       return signalPassFailure();
     }
   }
+  // LET'S DO IT A SECOND TIME!!
+  targetOps.clear();
+  funcOp = getOperation(); // I know the operation implements a function op
+                           // interface
+  // pick out all the operations inside the current function
+  // which implement a TilingInterface, and save them in a list.
+  funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
+  context = &getContext();
+  if (targetOps.size() == 0) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE
+                  "] No Target Ops found inside this function after tiling!\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Target Ops now has size "
+                            << targetOps.size() << "\n");
+    for (const auto &op : targetOps) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] This target Op is " << op << "\n");
+    }
+    // create an instance of our derived struct Pattern Rewriter.
+    TrivialPatternRewriter rewriter(context);
+    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
+    // insertion point is set inside tileAndFuseEach
+    // give our pattern rewriter and our hand-picked list of operations
+    // to the tiling function tileAndFuseEach
+    if (failed(ZigzagTiling::tileAndFuseEach(rewriter, targetOps, 88))) {
+      return signalPassFailure();
+    }
+  }
+}
+
+/// This collects the set of operations to tile + fuse starting from the given
+/// root |op| and walking up to its producers. Stops at operations given by
+/// |exclude| which are expected to receive their own independent tiling for the
+/// given level.
+static llvm::SmallDenseSet<Operation *>
+collectTiledAndFusedOps(Operation *op,
+                        const llvm::SmallDenseSet<TilingInterface> &exclude) {
+  SmallVector<Operation *> worklist;
+  llvm::SmallDenseSet<Operation *> producers;
+  worklist.push_back(op);
+  producers.insert(op);
+  while (!worklist.empty()) {
+    Operation *current = worklist.pop_back_val();
+    for (OpOperand &operand : current->getOpOperands()) {
+      auto producer = operand.get().getDefiningOp<TilingInterface>();
+      if (!producer || producers.contains(producer) ||
+          exclude.contains(producer))
+        continue;
+      worklist.push_back(producer);
+      producers.insert(producer);
+    }
+  }
+  return producers;
 }
 
 // my hacky tiling investigation
@@ -113,18 +167,18 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
 
     // TODO: uncomment dominance info and make it work.
 
-    // DominanceInfo dominanceInfo(tilingInterfaceOp);
-
-    // llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
-    //     collectTiledAndFusedOps(tilingInterfaceOp, payloadOps);
-    // DenseSet<Operation *> yieldReplacementsFor;
-    // for (auto op : tiledAndFusedOps) {
-    //   if (llvm::any_of(op->getUsers(), [&](Operation *user) {
-    //         return dominanceInfo.properlyDominates(tilingInterfaceOp, user);
-    //       })) {
-    //     yieldReplacementsFor.insert(op);
-    //   }
-    // }
+    DominanceInfo dominanceInfo(tilingInterfaceOp);
+    // TODO: what does this block do? I need to find out.
+    llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
+        collectTiledAndFusedOps(tilingInterfaceOp, payloadOps);
+    DenseSet<Operation *> yieldReplacementsFor;
+    for (auto op : tiledAndFusedOps) {
+      if (llvm::any_of(op->getUsers(), [&](Operation *user) {
+            return dominanceInfo.properlyDominates(tilingInterfaceOp, user);
+          })) {
+        yieldReplacementsFor.insert(op);
+      }
+    }
 
     rewriter.setInsertionPoint(tilingInterfaceOp);
     // // I think lowering config only holds tile info...
@@ -137,7 +191,8 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
     scf::SCFTilingOptions tilingOptions;
     OpBuilder b(tilingInterfaceOp);
     ArrayRef<ArrayRef<int64_t>> tileSizes = {
-        {26}, {8}, {8}}; // magic values for now
+        {8}, {8}, {26}}; // will this cause the pass to crash?
+    //  {8}, {8}, {26}}; // magic values for now
     ArrayRef<int64_t> interchange;
     // initialize requested tile sizes
     const auto &ts = ZigzagTiling::ZigZagTileSizeComputation(
@@ -153,6 +208,11 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       // tilingOptions.setInterchange(interchange); // TODO: interchange
       break;
     default:
+      tileSizes = {{0}, {0}, {13}};
+      const auto &ts2 = ZigzagTiling::ZigZagTileSizeComputation(
+          b, tilingInterfaceOp, tileSizes);
+      tilingOptions.setTileSizes(ts2);
+      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
       // tilingOptions.setTileSizeComputationFunction(
       //     [&](OpBuilder &builder, auto &&...) {
       //       SmallVector<OpFoldResult> result;
@@ -168,7 +228,7 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
 
       //       return result;
       //     });
-      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
+      // tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
       // tilingOptions.setInterchange(interchange); // TODO: interchange
       // tilingOptions.setInterchange(loweringConfig.getL1TilesInterchange());
       break;
@@ -178,21 +238,20 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
     tileAndFuseOptions.setTilingOptions(tilingOptions);
 
     // what does this block of code even do? I have to find out.
-    // scf::SCFTileAndFuseOptions::ControlFnTy controlFn =
-    //     [&](tensor::ExtractSliceOp candidateSliceOp, OpResult
-    //     originalProducer,
-    //         bool isDestinationOperand) {
-    //       Operation *owner = originalProducer.getOwner();
-    //       bool yieldProducerReplacement =
-    //       yieldReplacementsFor.contains(owner); bool shouldFuse = false;
-    //       if (auto tilingOwner = dyn_cast<TilingInterface>(owner)) {
-    //         shouldFuse = !payloadOps.contains(tilingOwner);
-    //       }
-    //       // Do not fuse destination operands.
-    //       shouldFuse &= !isDestinationOperand;
-    //       return std::make_tuple(shouldFuse, yieldProducerReplacement);
-    //     };
-    // tileAndFuseOptions.setFusionControlFn(controlFn);
+    scf::SCFTileAndFuseOptions::ControlFnTy controlFn =
+        [&](tensor::ExtractSliceOp candidateSliceOp, OpResult originalProducer,
+            bool isDestinationOperand) {
+          Operation *owner = originalProducer.getOwner();
+          bool yieldProducerReplacement = yieldReplacementsFor.contains(owner);
+          bool shouldFuse = false;
+          if (auto tilingOwner = dyn_cast<TilingInterface>(owner)) {
+            shouldFuse = !payloadOps.contains(tilingOwner);
+          }
+          // Do not fuse destination operands.
+          shouldFuse &= !isDestinationOperand;
+          return std::make_tuple(shouldFuse, yieldProducerReplacement);
+        };
+    tileAndFuseOptions.setFusionControlFn(controlFn);
 
     FailureOr<scf::SCFTileAndFuseResult> tiledResults =
         scf::tileConsumerAndFuseProducersUsingSCF(rewriter, tilingInterfaceOp,
@@ -209,7 +268,9 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       LLVM_DEBUG(llvm::dbgs()
                  << "[" DEBUG_TYPE
                     "] size of tiledAndFusedOps from tiledResults is  "
-                 << tiledResults->tiledAndFusedOps.size() << " and loops has size "<< tiledResults->loops.size()<<"\n");
+                 << tiledResults->tiledAndFusedOps.size()
+                 << " and loops has size " << tiledResults->loops.size()
+                 << "\n");
       for (const auto &op : tiledResults->tiledAndFusedOps) {
         LLVM_DEBUG(llvm::dbgs()
                    << "[" DEBUG_TYPE "] A generated op is: " << *op << "\n");
@@ -250,25 +311,24 @@ struct SCFTileAndFuseResult {
 
     // }
 
-    //     // Perform the replacement of tiled and fused values.
-    //     SmallVector<Operation *> opsToReplace{tilingInterfaceOp};
-    //     llvm::append_range(opsToReplace, tiledResults->fusedProducers);
-    //     for (Operation *toReplace : opsToReplace) {
-    //       for (OpResult res : toReplace->getResults())
-    //         if (auto replacement = tiledResults->replacements.lookup(res)) {
-    //           Operation *replacementOp = replacement.getDefiningOp();
-    //           rewriter.replaceUsesWithIf(res, replacement, [&](OpOperand
-    //           &use)
-    //           {
-    //             Operation *user = use.getOwner();
-    //             return dominanceInfo.properlyDominates(replacementOp, user);
-    //           });
-    //         }
+    // TODO: what does this block really do?
+    // Perform the replacement of tiled and fused values.
+    SmallVector<Operation *> opsToReplace{tilingInterfaceOp};
+    llvm::append_range(opsToReplace, tiledResults->fusedProducers);
+    for (Operation *toReplace : opsToReplace) {
+      for (OpResult res : toReplace->getResults())
+        if (auto replacement = tiledResults->replacements.lookup(res)) {
+          Operation *replacementOp = replacement.getDefiningOp();
+          rewriter.replaceUsesWithIf(res, replacement, [&](OpOperand &use) {
+            Operation *user = use.getOwner();
+            return dominanceInfo.properlyDominates(replacementOp, user);
+          });
+        }
 
-    //       if (toReplace->use_empty()) {
-    //         rewriter.eraseOp(toReplace);
-    //       }
-    //     }
+      if (toReplace->use_empty()) {
+        rewriter.eraseOp(toReplace);
+      }
+    }
   }
   return success();
 }
@@ -277,11 +337,12 @@ SmallVector<OpFoldResult>
 ZigzagTiling::ZigZagTileSizeComputation(OpBuilder &builder,
                                         Operation *operation,
                                         ArrayRef<ArrayRef<int64_t>> tileSizes) {
-  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Inside my zigzag tile size computation function :)\n");
+  LLVM_DEBUG(
+      llvm::dbgs() << "[" DEBUG_TYPE
+                      "] Inside my zigzag tile size computation function :)\n");
   SmallVector<OpFoldResult> result;
-  for(auto const& tiles : tileSizes){
+  for (auto const &tiles : tileSizes) {
     result.push_back(builder.getIndexAttr(tiles[0]));
-
   }
   return result;
 }
