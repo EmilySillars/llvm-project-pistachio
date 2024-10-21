@@ -9,6 +9,10 @@
 Example Run:
 
 ```
+sh tile-w-zigzag.sh matmul104x104-as-generic-linalg.mlir main out "tiling-scheme=zigzag-tile-scheme.json"
+```
+
+```
 clear;mlir-opt matmul104x104-as-generic-linalg.mlir -pass-pipeline='builtin.module(func.func(zigzag-tile{tiling-scheme=zigzag-tile-scheme.json}))' --debug --mlir-disable-threading &> temp && cat temp | grep zigzag && rm temp
 ```
 
