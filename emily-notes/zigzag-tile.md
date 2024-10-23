@@ -268,51 +268,305 @@ ImplicitTypeIDRegistry::lookupOrInsert(mlir::OffsetSizeAndStrideOpInterface::Tra
 followed by set of tile sizes `tiles sizes = {0}, {0}, {13}}`:
 
 ```
-%1 = scf.forall (%arg3) = (0) to (104) step (13) shared_outs(%arg4 = %arg2) -> (tensor<104x104xi32>) {
-  %extracted_slice = tensor.extract_slice %arg0[0, %arg3] [104, 13] [1, 1] : tensor<104x104xi8> to tensor<104x13xi8>
-  %extracted_slice_0 = tensor.extract_slice %arg1[%arg3, 0] [13, 104] [1, 1] : tensor<104x104xi8> to tensor<13x104xi8>
-  %extracted_slice_1 = tensor.extract_slice %arg4[0, 0] [104, 104] [1, 1] : tensor<104x104xi32> to tensor<104x104xi32>
-  %3 = linalg.generic {indexing_maps = [affine_map<(d0, d1, d2) -> (d0, d2)>, affine_map<(d0, d1, d2) -> (d2, d1)>, affine_map<(d0, d1, d2) -> (d0, d1)>], iterator_types = ["parallel", "parallel", "reduction"]} ins(%extracted_slice, %extracted_slice_0 : tensor<104x13xi8>, tensor<13x104xi8>) outs(%extracted_slice_1 : tensor<104x104xi32>) {
-  ^bb0(%in: i8, %in_2: i8, %out: i32):
-    %4 = arith.extsi %in : i8 to i32
-    %5 = arith.extsi %in_2 : i8 to i32
-    %6 = arith.muli %4, %5 : i32
-    %7 = arith.addi %out, %6 : i32
-    linalg.yield %7 : i32
-  } -> tensor<104x104xi32>
-  scf.forall.in_parallel {
-    tensor.parallel_insert_slice %3 into %arg4[0, 0] [104, 104] [1, 1] : tensor<104x104xi32> into tensor<104x104xi32>
+#map = ImplicitTypeIDRegistry::lookupOrInsert(mlir::detail::StorageUserTrait::IsMutable<Empty>)
+ImplicitTypeIDRegistry::lookupOrInsert(mlir::MemRefLayoutAttrInterface::Trait<Empty>)
+affine_map<(d0, d1, d2) -> (d0, d2)>
+#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+
+func.func @matmul104x104(
+%arg0: tensor<104x104xi8>, 
+%arg1: tensor<104x104xi8>, 
+%arg2: tensor<104x104xi32>) -> tensor<104x104xi32> {
+    %0 = scf.forall (%arg3, %arg4, %arg5) = (0, 0, 0) to (104, 104, 104) step (8, 8, 26) 
+    shared_outs(%arg6 = %arg2) -> (tensor<104x104xi32>) {
+      %extracted_slice = tensor.extract_slice %arg0[%arg3, %arg5] [8, 26] [1, 1] 
+      : tensor<104x104xi8> to tensor<8x26xi8>
+      %extracted_slice_0 = tensor.extract_slice %arg1[%arg5, %arg4] [26, 8] [1, 1] 
+      : tensor<104x104xi8> to tensor<26x8xi8>
+      %extracted_slice_1 = tensor.extract_slice %arg6[%arg3, %arg4] [8, 8] [1, 1] 
+      : tensor<104x104xi32> to tensor<8x8xi32>
+      
+      %1 = scf.forall (%arg7) = (0) to (26) step (13) 
+      shared_outs(%arg8 = %extracted_slice_1) -> (tensor<8x8xi32>) {
+        %extracted_slice_2 = tensor.extract_slice %extracted_slice[0, %arg7] [8, 13] [1, 1] 
+        : tensor<8x26xi8> to tensor<8x13xi8>
+        %extracted_slice_3 = tensor.extract_slice %extracted_slice_0[%arg7, 0] [13, 8] [1, 1] 
+        : tensor<26x8xi8> to tensor<13x8xi8>
+        %extracted_slice_4 = tensor.extract_slice %arg8[0, 0] [8, 8] [1, 1] 
+        : tensor<8x8xi32> to tensor<8x8xi32>
+        
+        %2 = linalg.generic {indexing_maps = [#map, #map1, #map2], iterator_types = ["parallel", "parallel", "reduction"]} 
+        ins(%extracted_slice_2, %extracted_slice_3 : tensor<8x13xi8>, tensor<13x8xi8>) 
+        outs(%extracted_slice_4 : tensor<8x8xi32>) {
+        ^bb0(%in: i8, %in_5: i8, %out: i32):
+          %3 = arith.extsi %in : i8 to i32
+          %4 = arith.extsi %in_5 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %out, %5 : i32
+          linalg.yield %6 : i32
+        } -> tensor<8x8xi32>
+        scf.forall.in_parallel {
+          tensor.parallel_insert_slice %2 into %arg8[0, 0] [8, 8] [1, 1] 
+          : tensor<8x8xi32> into tensor<8x8xi32>
+        }
+      }
+      // synchronization??
+      scf.forall.in_parallel {
+        tensor.parallel_insert_slice %1 into %arg6[%arg3, %arg4] [8, 8] [1, 1] 
+        : tensor<8x8xi32> into tensor<104x104xi32>
+      }
+    }
+    return %0 : tensor<104x104xi32>
   }
-}
-```
-
-what about instead following with tile sizes `tiles sizes = {1}, {1}, {13` ?
 
 ```
-%1 = scf.forall (%arg3, %arg4, %arg5) = (0, 0, 0) to (104, 104, 104) step (1, 1, 13) shared_outs(%arg6 = %arg2) -> (tensor<104x104xi32>) {
-  %extracted_slice = tensor.extract_slice %arg0[%arg3, %arg5] [1, 13] [1, 1] : tensor<104x104xi8> to tensor<1x13xi8>
-  %extracted_slice_0 = tensor.extract_slice %arg1[%arg5, %arg4] [13, 1] [1, 1] : tensor<104x104xi8> to tensor<13x1xi8>
-  %extracted_slice_1 = tensor.extract_slice %arg6[%arg3, %arg4] [1, 1] [1, 1] : tensor<104x104xi32> to tensor<1x1xi32>
-  %3 = linalg.generic {indexing_maps = [affine_map<(d0, d1, d2) -> (d0, d2)>, affine_map<(d0, d1, d2) -> (d2, d1)>, affine_map<(d0, d1, d2) -> (d0, d1)>], iterator_types = ["parallel", "parallel", "reduction"]} ins(%extracted_slice, %extracted_slice_0 : tensor<1x13xi8>, tensor<13x1xi8>) outs(%extracted_slice_1 : tensor<1x1xi32>) {
-  ^bb0(%in: i8, %in_2: i8, %out: i32):
-    %4 = arith.extsi %in : i8 to i32
-    %5 = arith.extsi %in_2 : i8 to i32
-    %6 = arith.muli %4, %5 : i32
-    %7 = arith.addi %out, %6 : i32
-    linalg.yield %7 : i32
-  } -> tensor<1x1xi32>
-  scf.forall.in_parallel {
-    tensor.parallel_insert_slice %3 into %arg6[%arg3, %arg4] [1, 1] [1, 1] : tensor<1x1xi32> into tensor<104x104xi32>
+
+This looks good, but we also need to specify ***loop interchange***!
+
+Instead of the `scf` for loops in order `8, 8, 26, 13`, (where the first 8 corresponds to the input operand, and the second 8 corresponds to the weight operand) we want the order to be `26, 13, 8, 8` (where the first 8 corresponds to the weight operand, and the second 8 corresponds to the input operand).
+
+So we want to go from positions `0, 1, 2, 3` to  `2, 3, 1, 0` . (where 0 is the outermost loop) Will this work for the library functions?
+
+I get a stack dump when I pass a list of 4 numbers.
+
+Doesn't seem to work - what about just `2, 1, 0` (ignoring second level of tiling)?
+
+```
+#map = ImplicitTypeIDRegistry::lookupOrInsert(mlir::detail::StorageUserTrait::IsMutable<Empty>)
+ImplicitTypeIDRegistry::lookupOrInsert(mlir::MemRefLayoutAttrInterface::Trait<Empty>)
+affine_map<(d0, d1, d2) -> (d0, d2)>
+#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+module {
+  func.func @matmul104x104(
+  %arg0: tensor<104x104xi8>, 
+  %arg1: tensor<104x104xi8>, 
+  %arg2: tensor<104x104xi32>) -> tensor<104x104xi32> {
+    %0 = scf.forall (%arg3, %arg4, %arg5) = (0, 0, 0) to (104, 104, 104) step (8, 8, 26) 
+    shared_outs(%arg6 = %arg2) -> (tensor<104x104xi32>) {
+      %extracted_slice = tensor.extract_slice %arg0[%arg3, %arg5] [8, 26] [1, 1] 
+      : tensor<104x104xi8> to tensor<8x26xi8>
+      %extracted_slice_0 = tensor.extract_slice %arg1[%arg5, %arg4] [26, 8] [1, 1] 
+      : tensor<104x104xi8> to tensor<26x8xi8>
+      %extracted_slice_1 = tensor.extract_slice %arg6[%arg3, %arg4] [8, 8] [1, 1] 
+      : tensor<104x104xi32> to tensor<8x8xi32>
+      %1 = scf.forall (%arg7) = (0) to (26) step (13) 
+      shared_outs(%arg8 = %extracted_slice_1) -> (tensor<8x8xi32>) {
+        %extracted_slice_2 = tensor.extract_slice %extracted_slice[0, %arg7] [8, 13] [1, 1] 
+        : tensor<8x26xi8> to tensor<8x13xi8>
+        %extracted_slice_3 = tensor.extract_slice %extracted_slice_0[%arg7, 0] [13, 8] [1, 1] 
+        : tensor<26x8xi8> to tensor<13x8xi8>
+        %extracted_slice_4 = tensor.extract_slice %arg8[0, 0] [8, 8] [1, 1] 
+        : tensor<8x8xi32> to tensor<8x8xi32>
+        %2 = linalg.generic {
+        indexing_maps = [#map, #map1, #map2], 
+        iterator_types = ["parallel", "parallel", "reduction"]} 
+        ins(%extracted_slice_2, %extracted_slice_3 : tensor<8x13xi8>, tensor<13x8xi8>) outs(%extracted_slice_4 : tensor<8x8xi32>) {
+        ^bb0(%in: i8, %in_5: i8, %out: i32):
+          %3 = arith.extsi %in : i8 to i32
+          %4 = arith.extsi %in_5 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %out, %5 : i32
+          linalg.yield %6 : i32
+        } -> tensor<8x8xi32>
+        scf.forall.in_parallel {
+          tensor.parallel_insert_slice %2 into %arg8[0, 0] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<8x8xi32>
+        }
+      }
+      scf.forall.in_parallel {
+        tensor.parallel_insert_slice %1 into %arg6[%arg3, %arg4] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<104x104xi32>
+      }
+    }
+    return %0 : tensor<104x104xi32>
   }
-}
+```
+
+That's the same thing as before, isn't it? What about `0, 1, 2`?
+
+```
+#map = ImplicitTypeIDRegistry::lookupOrInsert(mlir::detail::StorageUserTrait::IsMutable<Empty>)
+ImplicitTypeIDRegistry::lookupOrInsert(mlir::MemRefLayoutAttrInterface::Trait<Empty>)
+affine_map<(d0, d1, d2) -> (d0, d2)>
+#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+module {
+  func.func @matmul104x104(%arg0: tensor<104x104xi8>, %arg1: tensor<104x104xi8>, %arg2: tensor<104x104xi32>) -> tensor<104x104xi32> {
+    %0 = scf.forall (%arg3, %arg4, %arg5) = (0, 0, 0) to (104, 104, 104) step (8, 8, 26) shared_outs(%arg6 = %arg2) -> (tensor<104x104xi32>) {
+      %extracted_slice = tensor.extract_slice %arg0[%arg3, %arg5] [8, 26] [1, 1] : tensor<104x104xi8> to tensor<8x26xi8>
+      %extracted_slice_0 = tensor.extract_slice %arg1[%arg5, %arg4] [26, 8] [1, 1] : tensor<104x104xi8> to tensor<26x8xi8>
+      %extracted_slice_1 = tensor.extract_slice %arg6[%arg3, %arg4] [8, 8] [1, 1] : tensor<104x104xi32> to tensor<8x8xi32>
+      %1 = scf.forall (%arg7) = (0) to (26) step (13) shared_outs(%arg8 = %extracted_slice_1) -> (tensor<8x8xi32>) {
+        %extracted_slice_2 = tensor.extract_slice %extracted_slice[0, %arg7] [8, 13] [1, 1] : tensor<8x26xi8> to tensor<8x13xi8>
+        %extracted_slice_3 = tensor.extract_slice %extracted_slice_0[%arg7, 0] [13, 8] [1, 1] : tensor<26x8xi8> to tensor<13x8xi8>
+        %extracted_slice_4 = tensor.extract_slice %arg8[0, 0] [8, 8] [1, 1] : tensor<8x8xi32> to tensor<8x8xi32>
+        %2 = linalg.generic {indexing_maps = [#map, #map1, #map2], iterator_types = ["parallel", "parallel", "reduction"]} ins(%extracted_slice_2, %extracted_slice_3 : tensor<8x13xi8>, tensor<13x8xi8>) outs(%extracted_slice_4 : tensor<8x8xi32>) {
+        ^bb0(%in: i8, %in_5: i8, %out: i32):
+          %3 = arith.extsi %in : i8 to i32
+          %4 = arith.extsi %in_5 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %out, %5 : i32
+          linalg.yield %6 : i32
+        } -> tensor<8x8xi32>
+        scf.forall.in_parallel {
+          tensor.parallel_insert_slice %2 into %arg8[0, 0] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<8x8xi32>
+        }
+      }
+      scf.forall.in_parallel {
+        tensor.parallel_insert_slice %1 into %arg6[%arg3, %arg4] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<104x104xi32>
+      }
+    }
+    return %0 : tensor<104x104xi32>
+  }
 
 ```
 
+Finally got `2, 0 , 1` to work after setting tilingOptions with interchange information in the very first tiling call:
+```
+affine_map<(d0, d1, d2) -> (d0, d2)>
+#map1 = affine_map<(d0, d1, d2) -> (d2, d1)>
+#map2 = affine_map<(d0, d1, d2) -> (d0, d1)>
+module {
+  func.func @matmul104x104(%arg0: tensor<104x104xi8>, %arg1: tensor<104x104xi8>, %arg2: tensor<104x104xi32>) -> tensor<104x104xi32> {
+    %0 = scf.forall (%arg3, %arg4, %arg5) = (0, 0, 0) to (104, 104, 104) step (26, 8, 8) shared_outs(%arg6 = %arg2) -> (tensor<104x104xi32>) {
+      %extracted_slice = tensor.extract_slice %arg0[%arg4, %arg3] [8, 26] [1, 1] : tensor<104x104xi8> to tensor<8x26xi8>
+      %extracted_slice_0 = tensor.extract_slice %arg1[%arg3, %arg5] [26, 8] [1, 1] : tensor<104x104xi8> to tensor<26x8xi8>
+      %extracted_slice_1 = tensor.extract_slice %arg6[%arg4, %arg5] [8, 8] [1, 1] : tensor<104x104xi32> to tensor<8x8xi32>
+      %1 = scf.forall (%arg7) = (0) to (26) step (13) shared_outs(%arg8 = %extracted_slice_1) -> (tensor<8x8xi32>) {
+        %extracted_slice_2 = tensor.extract_slice %extracted_slice[0, %arg7] [8, 13] [1, 1] : tensor<8x26xi8> to tensor<8x13xi8>
+        %extracted_slice_3 = tensor.extract_slice %extracted_slice_0[%arg7, 0] [13, 8] [1, 1] : tensor<26x8xi8> to tensor<13x8xi8>
+        %extracted_slice_4 = tensor.extract_slice %arg8[0, 0] [8, 8] [1, 1] : tensor<8x8xi32> to tensor<8x8xi32>
+        %2 = linalg.generic {indexing_maps = [#map, #map1, #map2], iterator_types = ["parallel", "parallel", "reduction"]} ins(%extracted_slice_2, %extracted_slice_3 : tensor<8x13xi8>, tensor<13x8xi8>) outs(%extracted_slice_4 : tensor<8x8xi32>) {
+        ^bb0(%in: i8, %in_5: i8, %out: i32):
+          %3 = arith.extsi %in : i8 to i32
+          %4 = arith.extsi %in_5 : i8 to i32
+          %5 = arith.muli %3, %4 : i32
+          %6 = arith.addi %out, %5 : i32
+          linalg.yield %6 : i32
+        } -> tensor<8x8xi32>
+        scf.forall.in_parallel {
+          tensor.parallel_insert_slice %2 into %arg8[0, 0] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<8x8xi32>
+        }
+      }
+      scf.forall.in_parallel {
+        tensor.parallel_insert_slice %1 into %arg6[%arg4, %arg5] [8, 8] [1, 1] : tensor<8x8xi32> into tensor<104x104xi32>
+      }
+    }
+    return %0 : tensor<104x104xi32>
+  }
 
+```
+
+What happens if I generate forOp loops instead of ForAll loops? I think ForOp loops might be better?
+
+```
+func.func @matmul104x104(%arg0: tensor<104x104xi8>, %arg1: tensor<104x104xi8>, %arg2: tensor<104x104xi32>) -> tensor<104x104xi32> {
+    %c0 = arith.constant 0 : index
+    %c104 = arith.constant 104 : index
+    %c26 = arith.constant 26 : index
+    %0 = scf.for %arg3 = %c0 to %c104 step %c26 iter_args(%arg4 = %arg2) -> (tensor<104x104xi32>) {
+      %c0_0 = arith.constant 0 : index
+      %c104_1 = arith.constant 104 : index
+      %c8 = arith.constant 8 : index
+      %1 = scf.for %arg5 = %c0_0 to %c104_1 step %c8 iter_args(%arg6 = %arg4) -> (tensor<104x104xi32>) {
+        %c0_2 = arith.constant 0 : index
+        %c104_3 = arith.constant 104 : index
+        %c8_4 = arith.constant 8 : index
+        %2 = scf.for %arg7 = %c0_2 to %c104_3 step %c8_4 iter_args(%arg8 = %arg6) -> (tensor<104x104xi32>) {
+          %extracted_slice = tensor.extract_slice %arg0[%arg5, %arg3] [8, 26] [1, 1] 
+          : tensor<104x104xi8> to tensor<8x26xi8>
+          %extracted_slice_5 = tensor.extract_slice %arg1[%arg3, %arg7] [26, 8] [1, 1] 
+          : tensor<104x104xi8> to tensor<26x8xi8>
+          %extracted_slice_6 = tensor.extract_slice %arg8[%arg5, %arg7] [8, 8] [1, 1] 
+          : tensor<104x104xi32> to tensor<8x8xi32>
+          %c0_7 = arith.constant 0 : index
+          %c26_8 = arith.constant 26 : index
+          %c13 = arith.constant 13 : index
+          %3 = scf.for %arg9 = %c0_7 to %c26_8 step %c13 iter_args(%arg10 = %extracted_slice_6) -> (tensor<8x8xi32>) {
+            %extracted_slice_9 = tensor.extract_slice %extracted_slice[0, %arg9] [8, 13] [1, 1] 
+            : tensor<8x26xi8> to tensor<8x13xi8>
+            %extracted_slice_10 = tensor.extract_slice %extracted_slice_5[%arg9, 0] [13, 8] [1, 1] 
+            : tensor<26x8xi8> to tensor<13x8xi8>
+            %extracted_slice_11 = tensor.extract_slice %arg10[0, 0] [8, 8] [1, 1] 
+            : tensor<8x8xi32> to tensor<8x8xi32>
+            %4 = linalg.generic {
+            indexing_maps = [#map, #map1, #map2], 
+            iterator_types = ["parallel", "parallel", "reduction"]} 
+            ins(%extracted_slice_9, %extracted_slice_10 : tensor<8x13xi8>, tensor<13x8xi8>) 
+            outs(%extracted_slice_11 : tensor<8x8xi32>) {
+            ^bb0(%in: i8, %in_13: i8, %out: i32):
+              %5 = arith.extsi %in : i8 to i32
+              %6 = arith.extsi %in_13 : i8 to i32
+              %7 = arith.muli %5, %6 : i32
+              %8 = arith.addi %out, %7 : i32
+              linalg.yield %8 : i32
+            } -> tensor<8x8xi32>
+            %inserted_slice_12 = tensor.insert_slice %4 into %arg10[0, 0] [8, 8] [1, 1] 
+            : tensor<8x8xi32> into tensor<8x8xi32>
+            scf.yield %inserted_slice_12 : tensor<8x8xi32>
+          }
+          %inserted_slice = tensor.insert_slice %3 into %arg8[%arg5, %arg7] [8, 8] [1, 1] 
+          : tensor<8x8xi32> into tensor<104x104xi32>
+          scf.yield %inserted_slice : tensor<104x104xi32>
+        }
+        scf.yield %2 : tensor<104x104xi32>
+      }
+      scf.yield %1 : tensor<104x104xi32>
+    }
+    return %0 : tensor<104x104xi32>
+  }
+```
 
 
 
 ## Old notes delete later
+
+notes on loop interchange - from `tileUsingSCF`:
+
+```
+// 3. If there is an interchange specified, permute the iteration domain and
+// the tile sizes.
+
+SmallVector<int64_t> interchangeVector;
+
+if (!options.interchangeVector.empty()) {
+    interchangeVector = fillInterchangeVector(options.interchangeVector,
+                                              iterationDomain.size());
+}
+
+if (!interchangeVector.empty()) {
+  if (!isPermutationVector(interchangeVector)) {
+      return rewriter.notifyMatchFailure(
+          op, "invalid intechange vector, not a permutation of the entire "
+              "iteration space");
+  }
+
+    applyPermutationToVector(iterationDomain, interchangeVector);
+    applyPermutationToVector(tileSizes, interchangeVector);
+}
+
+```
+
+More notes, this time on `fillInterchangeVector`:
+
+```
+/// Helper method to adjust the interchange vector to match the iteration
+/// domain.
+static SmallVector<int64_t>
+fillInterchangeVector(ArrayRef<int64_t> interchangeVector,
+                      size_t iterationDomainSize) {
+  SmallVector<int64_t> filledVector = llvm::to_vector(interchangeVector);
+  if (filledVector.size() < iterationDomainSize) {
+    auto range = llvm::seq<int64_t>(filledVector.size(), iterationDomainSize);
+    filledVector.append(range.begin(), range.end());
+  }
+  if (filledVector.size() > iterationDomainSize)
+    filledVector.resize(iterationDomainSize);
+  return filledVector;
+}
+```
+
+
 
 ```
 // recall:  O[a][b]+=I[a][c]*W[c][b]
@@ -376,3 +630,34 @@ followed by
 ```
 
 ?
+
+## writing my own interchange function (oh god >.<)
+
+Notes/ Reference:
+
+```
+bool mlir::getInnermostParallelLoops(Operation *rootOp,
+                                     SmallVectorImpl<scf::ParallelOp> &result) {
+  assert(rootOp != nullptr && "Root operation must not be a nullptr.");
+  bool rootEnclosesPloops = false;
+  for (Region &region : rootOp->getRegions()) {
+    for (Block &block : region.getBlocks()) {
+      for (Operation &op : block) {
+        bool enclosesPloops = getInnermostParallelLoops(&op, result);
+        rootEnclosesPloops |= enclosesPloops;
+        if (auto ploop = dyn_cast<scf::ParallelOp>(op)) {
+          rootEnclosesPloops = true;
+
+          // Collect parallel loop if it is an innermost one.
+          if (!enclosesPloops)
+            result.push_back(ploop);
+        }
+      }
+    }
+  }
+  return rootEnclosesPloops;
+}
+```
+
+Let's put a pin in it until we have json parsing in...
+

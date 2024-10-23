@@ -126,6 +126,35 @@ void ZigzagTiling::runOnOperation() {
       return signalPassFailure();
     }
   }
+  // LET'S DO IT A THIRD TIME (NOW THAT WE HAVE TILED, DO INTERCHANGE!!)
+  targetOps.clear();
+  funcOp = getOperation(); // I know the operation implements a function op
+                           // interface
+  // pick out all the operations inside the current function
+  // which implement a TilingInterface, and save them in a list.
+  funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
+  context = &getContext();
+  if (targetOps.size() == 0) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE
+                  "] No Target Ops found inside this function after tiling!\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Target Ops now has size "
+                            << targetOps.size() << "\n");
+    for (const auto &op : targetOps) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] This target Op is " << op << "\n");
+    }
+    // create an instance of our derived struct Pattern Rewriter.
+    TrivialPatternRewriter rewriter2(context);
+    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
+    // insertion point is set inside tileAndFuseEach
+    // give our pattern rewriter and our hand-picked list of operations
+    // to the tiling function tileAndFuseEach
+    if (failed(ZigzagTiling::tileAndFuseEach(rewriter2, targetOps, 89))) {
+      return signalPassFailure();
+    }
+  }
 }
 
 /// This collects the set of operations to tile + fuse starting from the given
@@ -191,28 +220,34 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
     scf::SCFTilingOptions tilingOptions;
     OpBuilder b(tilingInterfaceOp);
     ArrayRef<ArrayRef<int64_t>> tileSizes = {
-        {8}, {8}, {26}}; // will this cause the pass to crash?
-    //  {8}, {8}, {26}}; // magic values for now
-    ArrayRef<int64_t> interchange;
-    // initialize requested tile sizes
+        {8}, {8}, {26}}; 
     const auto &ts = ZigzagTiling::ZigZagTileSizeComputation(
         b, tilingInterfaceOp, tileSizes);
 
+    tileSizes = {{0}, {0}, {13}};
+    const auto &ts2 = ZigzagTiling::ZigZagTileSizeComputation(
+          b, tilingInterfaceOp, tileSizes);
+
+    tileSizes = {{0}, {0}, {0}};
+    const auto &ts3 = ZigzagTiling::ZigZagTileSizeComputation(
+          b, tilingInterfaceOp, tileSizes);
+    ArrayRef<int64_t> interchange = {2, 0, 1};
+    // ArrayRef<int64_t> interchange = {2, 1, 0};
+    //ArrayRef<int64_t> interchange = {2, 3, 1, 0}; // causes stack dump
     // do something different based on the tilingLevel parameter.
     switch (tilingLevel) {
     case 87:
       // SCFTilingOptions &setTileSizes(ArrayRef<OpFoldResult> ts);
       tilingOptions.setTileSizes(ts);
       // tilingOptions.setTileSizeComputationFunction(ZigzagTiling::ZigZagTileSizeComputation);
-      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
+      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
       // tilingOptions.setInterchange(interchange); // TODO: interchange
+      tilingOptions.setInterchange(interchange);
       break;
-    default:
-      tileSizes = {{0}, {0}, {13}};
-      const auto &ts2 = ZigzagTiling::ZigZagTileSizeComputation(
-          b, tilingInterfaceOp, tileSizes);
+    case 88:
       tilingOptions.setTileSizes(ts2);
-      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
+      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
+      tilingOptions.setInterchange(interchange);
       // tilingOptions.setTileSizeComputationFunction(
       //     [&](OpBuilder &builder, auto &&...) {
       //       SmallVector<OpFoldResult> result;
@@ -231,6 +266,11 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       // tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
       // tilingOptions.setInterchange(interchange); // TODO: interchange
       // tilingOptions.setInterchange(loweringConfig.getL1TilesInterchange());
+      break;
+    default:
+      tilingOptions.setTileSizes(ts3);
+      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
+      tilingOptions.setInterchange(interchange);
       break;
     }
 

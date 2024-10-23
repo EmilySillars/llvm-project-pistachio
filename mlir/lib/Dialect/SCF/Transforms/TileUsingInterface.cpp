@@ -563,8 +563,13 @@ mlir::scf::tileUsingSCF(RewriterBase &rewriter, TilingInterface op,
           op, "invalid intechange vector, not a permutation of the entire "
               "iteration space");
     }
-
+    LLVM_DEBUG(llvm::dbgs()
+                   << "[" DEBUG_TYPE "] Before first call to applyPermutationToVector \n");
+    // LLVM_DEBUG(llvm::dbgs()
+    //                << "[" DEBUG_TYPE "] iterationDomain is "<< iterationDomain << "\n");
     applyPermutationToVector(iterationDomain, interchangeVector);
+     LLVM_DEBUG(llvm::dbgs()
+                   << "[" DEBUG_TYPE "] Before second call to applyPermutationToVector \n");
     applyPermutationToVector(tileSizes, interchangeVector);
   }
 
@@ -995,7 +1000,7 @@ mlir::scf::tileConsumerAndFuseProducersUsingSCF(
   // valid to use with operations that have memref operands).
   if (!consumer->getNumResults()) {
     LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE "] Problem! this for op does not have any results! zippy \n");
+               << "[" DEBUG_TYPE "] Problem! this for op does not have any results!\n");
     return rewriter.notifyMatchFailure(
         consumer, "invalid pattern for op with no results");
   }
