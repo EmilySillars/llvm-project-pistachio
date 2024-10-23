@@ -521,6 +521,38 @@ func.func @matmul104x104(%arg0: tensor<104x104xi8>, %arg1: tensor<104x104xi8>, %
 
 ## Old notes delete later
 
+```
+[zigzag-tile] .122. ]
+[zigzag-tile] .105. ]
+[zigzag-tile] .103. ]
+[zigzag-tile] .122. ]
+[zigzag-tile] .97. ]
+[zigzag-tile] .103. ]
+[zigzag-tile] .45. ]
+[zigzag-tile] .116. ]
+[zigzag-tile] .105. ]
+[zigzag-tile] .108. ]
+[zigzag-tile] .101. ]
+[zigzag-tile] .45. ]
+[zigzag-tile] .115. ]
+[zigzag-tile] .99. ]
+[zigzag-tile] .104. ]
+[zigzag-tile] .101. ]
+[zigzag-tile] .109. ]
+[zigzag-tile] .101. ]
+[zigzag-tile] .46. ]
+[zigzag-tile] .106. ]
+[zigzag-tile] .115. ]
+[zigzag-tile] .111. ]
+[zigzag-tile] .110. ]
+```
+
+
+
+
+
+
+
 notes on loop interchange - from `tileUsingSCF`:
 
 ```

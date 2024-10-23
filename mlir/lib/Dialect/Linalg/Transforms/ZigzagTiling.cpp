@@ -18,6 +18,11 @@
 #include "mlir/IR/Attributes.h"
 #include "mlir/Interfaces/FunctionInterfaces.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "llvm/Support/JSON.h" // to parse tiling scheme
+#include <fstream>             // to open tiling scheme file
+#include <sstream>
+#include <stdio.h>
+#include <string.h>
 #include <string> // for string compare
 
 namespace mlir {
@@ -37,10 +42,6 @@ public:
   ZigzagTiling() = default;
 
 private:
-  // bool canScheduleOn(RegisteredOperationName opInfo) const override {
-  //   return opInfo.hasInterface<FunctionOpInterface>();
-  // }
-
   SmallVector<OpFoldResult>
   ZigZagTileSizeComputation(OpBuilder &builder, Operation *operation,
                             ArrayRef<ArrayRef<int64_t>> tileSizes);
@@ -52,6 +53,58 @@ private:
                   int tilingLevel);
 
   void runOnOperation() override;
+  // everything below relates to processing the tiling scheme as input
+  LogicalResult initializeOptions(StringRef options) override;
+  void parseTilingScheme(StringRef fileContent);
+  void parseListOfListOfInts(llvm::json::Object *obj, std::string listName,
+                             std::vector<std::vector<int>> &out);
+  struct TilingScheme {
+    // TODO: use SmallVector (llvm/include/llvm/ADT/SmallVector.h)
+    //       instead of std::vector!
+    //       Check this link about when to use Small Vector:
+    //       llvm/docs/ProgrammersManual.rst#L1543-L1544
+    std::vector<std::vector<int>> bounds;
+    std::vector<std::vector<int>> order;
+    std::vector<std::vector<int>> finalIndices;
+    uint64_t totalLoopCount = 0;
+    TilingScheme() = default;
+    void setTotalLoopCount();
+    void buildFinalIndices();
+
+  private:
+    int findSubloop(size_t i, size_t j);
+  } ts;
+  friend std::stringstream &operator<<(std::stringstream &ss,
+                                       const ZigzagTiling::TilingScheme &ts) {
+    ss << "tiling scheme: {\nbounds: [ ";
+    for (const auto &sublist : ts.bounds) {
+      ss << "[ ";
+      for (const auto &bound : sublist) {
+        ss << " " << bound << " ";
+      }
+      ss << "] ";
+    }
+    ss << "]\n";
+    ss << "finalIndices: [ ";
+    for (const auto &sublist : ts.finalIndices) {
+      ss << "[ ";
+      for (const auto &pos : sublist) {
+        ss << " " << pos << " ";
+      }
+      ss << "] ";
+    }
+    ss << "]\n}";
+    ss << "order: [ ";
+    for (const auto &sublist : ts.order) {
+      ss << "[ ";
+      for (const auto &pos : sublist) {
+        ss << " " << pos << " ";
+      }
+      ss << "] ";
+    }
+    ss << "]\n}";
+    return ss;
+  }
 };
 } // namespace
 
@@ -61,16 +114,15 @@ std::unique_ptr<Pass> mlir::createZigzagTilingPass() {
 
 void ZigzagTiling::runOnOperation() {
   llvm::SmallDenseSet<TilingInterface> targetOps;
-  FunctionOpInterface funcOp =
-      getOperation(); // I know the operation implements a function op
-                      // interface
-  // pick out all the operations inside the current function
-  // which implement a TilingInterface, and save them in a list.
+  // We know the operation implements a function op
+  // interface because we defined this pass as an interface pass on the
+  // FunctionOpInterface
+  FunctionOpInterface funcOp = getOperation();
+  // Pick out all the operations inside the current function
+  // which implement a TilingInterface (linalg ops), and save them in a list.
   funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
   auto *context = &getContext(); // whose context? the function's context?
-  // // ConversionTarget target(*context);
-  // PatternRewriter rewriter(context);
-  // declare a pattern rewriter derived struct??
+  // declare a pattern rewriter (Based on LinalgTransformOps tryApply function)
   struct TrivialPatternRewriter : public PatternRewriter {
   public:
     explicit TrivialPatternRewriter(MLIRContext *context)
@@ -89,69 +141,8 @@ void ZigzagTiling::runOnOperation() {
     }
     // create an instance of our derived struct Pattern Rewriter.
     TrivialPatternRewriter rewriter(context);
-    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
-    // insertion point is set inside tileAndFuseEach
-    // give our pattern rewriter and our hand-picked list of operations
-    // to the tiling function tileAndFuseEach
+    // Tile each Linalg Operation using a ZigZag plan
     if (failed(ZigzagTiling::tileAndFuseEach(rewriter, targetOps, 87))) {
-      return signalPassFailure();
-    }
-  }
-  // LET'S DO IT A SECOND TIME!!
-  targetOps.clear();
-  funcOp = getOperation(); // I know the operation implements a function op
-                           // interface
-  // pick out all the operations inside the current function
-  // which implement a TilingInterface, and save them in a list.
-  funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
-  context = &getContext();
-  if (targetOps.size() == 0) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE
-                  "] No Target Ops found inside this function after tiling!\n");
-  } else {
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Target Ops now has size "
-                            << targetOps.size() << "\n");
-    for (const auto &op : targetOps) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "[" DEBUG_TYPE "] This target Op is " << op << "\n");
-    }
-    // create an instance of our derived struct Pattern Rewriter.
-    TrivialPatternRewriter rewriter(context);
-    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
-    // insertion point is set inside tileAndFuseEach
-    // give our pattern rewriter and our hand-picked list of operations
-    // to the tiling function tileAndFuseEach
-    if (failed(ZigzagTiling::tileAndFuseEach(rewriter, targetOps, 88))) {
-      return signalPassFailure();
-    }
-  }
-  // LET'S DO IT A THIRD TIME (NOW THAT WE HAVE TILED, DO INTERCHANGE!!)
-  targetOps.clear();
-  funcOp = getOperation(); // I know the operation implements a function op
-                           // interface
-  // pick out all the operations inside the current function
-  // which implement a TilingInterface, and save them in a list.
-  funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
-  context = &getContext();
-  if (targetOps.size() == 0) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE
-                  "] No Target Ops found inside this function after tiling!\n");
-  } else {
-    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Target Ops now has size "
-                            << targetOps.size() << "\n");
-    for (const auto &op : targetOps) {
-      LLVM_DEBUG(llvm::dbgs()
-                 << "[" DEBUG_TYPE "] This target Op is " << op << "\n");
-    }
-    // create an instance of our derived struct Pattern Rewriter.
-    TrivialPatternRewriter rewriter2(context);
-    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
-    // insertion point is set inside tileAndFuseEach
-    // give our pattern rewriter and our hand-picked list of operations
-    // to the tiling function tileAndFuseEach
-    if (failed(ZigzagTiling::tileAndFuseEach(rewriter2, targetOps, 89))) {
       return signalPassFailure();
     }
   }
@@ -194,10 +185,8 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
 
   for (TilingInterface tilingInterfaceOp : payloadOps) {
 
-    // TODO: uncomment dominance info and make it work.
-
-    DominanceInfo dominanceInfo(tilingInterfaceOp);
     // TODO: what does this block do? I need to find out.
+    DominanceInfo dominanceInfo(tilingInterfaceOp);
     llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
         collectTiledAndFusedOps(tilingInterfaceOp, payloadOps);
     DenseSet<Operation *> yieldReplacementsFor;
@@ -209,31 +198,23 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       }
     }
 
-    rewriter.setInsertionPoint(tilingInterfaceOp);
-    // // I think lowering config only holds tile info...
-    // //
-    // https://github.com/opencompl/Quidditch/blob/15935bfe2cf454a929eed37f0450ed5c4c3036cf/codegen/compiler/src/Quidditch/Dialect/Snitch/IR/QuidditchSnitchAttrs.cpp#L7
+    // repeat tiling of each loop until we are done
 
-    // auto loweringConfig =
-    //     getLoweringConfig<quidditch::Snitch::LoweringConfigAttr>(
-    //         tilingInterfaceOp);
+    rewriter.setInsertionPoint(tilingInterfaceOp);
     scf::SCFTilingOptions tilingOptions;
     OpBuilder b(tilingInterfaceOp);
-    ArrayRef<ArrayRef<int64_t>> tileSizes = {
-        {8}, {8}, {26}}; 
+    // first level of tiling
+    ArrayRef<ArrayRef<int64_t>> tileSizes = {{8}, {8}, {26}};
     const auto &ts = ZigzagTiling::ZigZagTileSizeComputation(
         b, tilingInterfaceOp, tileSizes);
-
+    // second level of tiling
     tileSizes = {{0}, {0}, {13}};
     const auto &ts2 = ZigzagTiling::ZigZagTileSizeComputation(
-          b, tilingInterfaceOp, tileSizes);
-
-    tileSizes = {{0}, {0}, {0}};
-    const auto &ts3 = ZigzagTiling::ZigZagTileSizeComputation(
-          b, tilingInterfaceOp, tileSizes);
+        b, tilingInterfaceOp, tileSizes);
+    // interchange vector
     ArrayRef<int64_t> interchange = {2, 0, 1};
     // ArrayRef<int64_t> interchange = {2, 1, 0};
-    //ArrayRef<int64_t> interchange = {2, 3, 1, 0}; // causes stack dump
+    // ArrayRef<int64_t> interchange = {2, 3, 1, 0}; // causes stack dump
     // do something different based on the tilingLevel parameter.
     switch (tilingLevel) {
     case 87:
@@ -268,7 +249,7 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       // tilingOptions.setInterchange(loweringConfig.getL1TilesInterchange());
       break;
     default:
-      tilingOptions.setTileSizes(ts3);
+      tilingOptions.setTileSizes(ts2);
       tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
       tilingOptions.setInterchange(interchange);
       break;
@@ -277,7 +258,7 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
     scf::SCFTileAndFuseOptions tileAndFuseOptions;
     tileAndFuseOptions.setTilingOptions(tilingOptions);
 
-    // what does this block of code even do? I have to find out.
+    // TODO: what does this block of code even do? I have to find out.
     scf::SCFTileAndFuseOptions::ControlFnTy controlFn =
         [&](tensor::ExtractSliceOp candidateSliceOp, OpResult originalProducer,
             bool isDestinationOperand) {
@@ -293,6 +274,7 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
         };
     tileAndFuseOptions.setFusionControlFn(controlFn);
 
+    // perform the tiling
     FailureOr<scf::SCFTileAndFuseResult> tiledResults =
         scf::tileConsumerAndFuseProducersUsingSCF(rewriter, tilingInterfaceOp,
                                                   tileAndFuseOptions);
@@ -322,35 +304,6 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       }
     }
 
-    /*
-    /// Transformation information returned after tile and fuse.
-struct SCFTileAndFuseResult {
-  /// List of untiled operations that were fused with the tiled consumer.
-  llvm::SetVector<Operation *> fusedProducers;
-  /// List of tiled and fused operations generated. The first one in this list
-  /// is guaranteed to be the tiled operations generated during tiling of the
-  /// generated operation.
-  llvm::SetVector<Operation *> tiledAndFusedOps;
-  /// The `scf.for` operations that iterate over the tiles.
-  SmallVector<LoopLikeOpInterface> loops;
-  /// The replacement values to use for the tiled and fused operations.
-  llvm::DenseMap<Value, Value> replacements;
-};
-
-     */
-
-    // my code
-    // for(auto const& toReplace: tiledResults->fusedProducers){
-    //   for(OpResult res : toReplace->getResults()){
-    //     if(auto replacement = tiledResults->replacements.lookup(res)){
-    //        LLVM_DEBUG(llvm::dbgs()
-    //            << "[" DEBUG_TYPE "] A replacement is: "<< replacement<<"\n");
-    //     }
-
-    //   }
-
-    // }
-
     // TODO: what does this block really do?
     // Perform the replacement of tiled and fused values.
     SmallVector<Operation *> opsToReplace{tilingInterfaceOp};
@@ -369,6 +322,7 @@ struct SCFTileAndFuseResult {
         rewriter.eraseOp(toReplace);
       }
     }
+    // when we reach here, the entire linalg op should be tiled
   }
   return success();
 }
@@ -385,6 +339,215 @@ ZigzagTiling::ZigZagTileSizeComputation(OpBuilder &builder,
     result.push_back(builder.getIndexAttr(tiles[0]));
   }
   return result;
+}
+
+void ZigzagTiling::TilingScheme::setTotalLoopCount() {
+  unsigned total = 0;
+  for (const auto &bound : bounds) {
+    total += (bound.size() +
+              1); // for each loop getting tiled, count the extra affine loop
+                  // needed to calculate the first level indexing inside a tile
+  }
+  LLVM_DEBUG(
+      llvm::dbgs() << "[" DEBUG_TYPE
+                      "] total number of loops in tiled loop nest will be "
+                   << total << " \n");
+  totalLoopCount = total;
+}
+
+void ZigzagTiling::TilingScheme::buildFinalIndices() {
+  // std::vector<std::vector<int>> bounds;
+  // finalIndices
+  for (size_t i = 0; i < bounds.size(); i++) {
+    finalIndices.push_back(std::vector<int>());
+    for (size_t j = 0; j < bounds[i].size(); j++) {
+      size_t finalIndex = totalLoopCount - findSubloop(i, j) - 1;
+      finalIndices[i].push_back(finalIndex);
+    }
+  }
+}
+
+int ZigzagTiling::TilingScheme::findSubloop(size_t i, size_t j) {
+  for (size_t k = 0; k < order.size(); k++) {
+    if (((size_t)order[k][0] == i) && ((size_t)order[k][1] == j)) {
+      return k;
+    }
+  }
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE
+                             "] Error: Could not find subloop in tiling scheme "
+                             "order. Returning negative index... \n");
+  return -1;
+}
+
+// helpers for processing tiling scheme input
+void ZigzagTiling::parseListOfListOfInts(llvm::json::Object *obj,
+                                         std::string listName,
+                                         std::vector<std::vector<int>> &out) {
+  llvm::json::Value *bnds = obj->get(StringRef(listName));
+  if (!bnds) { // getAsArray returns a (const json::Array *)
+    llvm::errs() << "Error: field labeled '" << listName
+                 << "' does not exist \n ";
+    exit(1);
+  }
+
+  if (!bnds->getAsArray()) { // getAsArray returns a (const json::Array *)
+    llvm::errs() << "Error: field labeled '" << listName
+                 << "' is not a JSON array \n ";
+    exit(1);
+  }
+  llvm::json::Path::Root Root("Try-to-parse-integer");
+  for (const auto &Item :
+       *(bnds->getAsArray())) { // loop over a json::Array type
+    if (!Item.getAsArray()) {
+      llvm::errs() << "Error: elt of '" << listName
+                   << "' is not also a JSON array \n ";
+      exit(1);
+    }
+    std::vector<int> sublist;
+    int bound;
+    for (const auto &elt :
+         *(Item.getAsArray())) { // loop over a json::Array type
+      if (!fromJSON(elt, bound, Root)) {
+        llvm::errs() << llvm::toString(Root.getError()) << "\n";
+        Root.printErrorContext(elt, llvm::errs());
+        exit(1);
+      }
+      sublist.push_back(bound);
+    }
+    out.push_back(sublist);
+  }
+}
+
+void ZigzagTiling::parseTilingScheme(StringRef fileContent) {
+  llvm::Expected<llvm::json::Value> maybeParsed =
+      llvm::json::parse(fileContent);
+  if (!maybeParsed) {
+    llvm::errs() << "Error when parsing JSON file contents: "
+                 << llvm::toString(maybeParsed.takeError());
+    exit(1);
+  }
+  // try to get the top level json object
+  if (!maybeParsed->getAsObject()) {
+    llvm::errs() << "Error: top-level value is not a JSON object: " << '\n';
+    exit(1);
+  }
+  llvm::json::Object *O = maybeParsed->getAsObject();
+  // try to read the two fields
+  parseListOfListOfInts(O, "bounds", ts.bounds);
+  parseListOfListOfInts(O, "order", ts.order);
+}
+
+LogicalResult ZigzagTiling::initializeOptions(StringRef options) {
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                          << "the options are  [ " << options << " ]\n");
+
+  // std::stringstream filename;
+  // filename << options;
+  //&& options.consume_back(StringRef("})"))
+  // try to extract file name from the options
+  // if (options.consume_front(StringRef("tiling-scheme="))) {
+  if (options.consume_front(StringRef("tiling-scheme="))) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] "
+               << "ate the front so now filename is  [ " << options.data()
+               << " ] with length [ " << strlen(options.data()) << " ]\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] couldn't eat the front :(\n");
+  }
+
+  if (options.consume_back(StringRef("}))"))) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] "
+               << "ate the back so now filename is  [ " << options.data()
+               << " ] with length [ " << strlen(options.data()) << " ]\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] "
+               << "couldn't eat the back. filename is  [ " << options.data()
+               << " ] with length [ " << strlen(options.data()) << " ]\n");
+  }
+
+ // find_last_of(StringRef Chars, size_t From = npos) 
+ // StringRef substr(size_t Start, size_t N = npos) 
+ //StringRef filename = options.slice(0,options.find_last_of(StringRef("}")));
+//  LLVM_DEBUG(llvm::dbgs()
+//                << "[" DEBUG_TYPE "] "
+//                << "hoodle " << filename.data() << "\n");
+
+char * aCopy = (char*) malloc(options.size()+1);
+for(size_t i = 0; i < options.size()+1; i++){
+  aCopy[i] = 0;
+
+}
+for(size_t i = 0; i < options.size(); i++){
+  LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] ."<< (int)options.data()[i]<<". ]\n");
+               aCopy[i] = options.data()[i];
+
+}
+ LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] aCopy is.["<< aCopy<<"]\n");
+
+/*
+constexpr llvm::StringRef::StringRef 	( 	const char *  	data,
+		size_t  	length 
+	) 	
+*/
+
+// llvm::StringRef filename(options.data(), options.size()-3);// = options.substr(0,options.size()-1);
+llvm::StringRef filename= options.substr(0, 23);// = options.substr(0,options.size()-1);
+
+ LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] new StringRef is ."<< filename.data()<<". ] with length "<< filename.size()<<"\n");
+
+  // try to read file
+  std::ifstream ifs(aCopy);
+  
+
+  if (!ifs.is_open()) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] "
+               << "Error opening file: " << options.data() << "\n");
+
+    // Check for specific error conditions
+    if (ifs.bad()) {
+      LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                              << "Fatal error: badbit is set."
+                              << "\n");
+    }
+
+    if (ifs.fail()) {
+      // Print a more detailed error message using
+      // strerror
+      LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                              << "Error details: " << strerror(errno) << "\n");
+    }
+
+    // Handle the error or exit the program
+    return failure();
+  }
+
+  // assert(ifs.fail() != false && "Tiling Scheme file reading error.");
+  std::stringstream ss;
+  ss << ifs.rdbuf();
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                          << "file contains... [ " << ss.str()
+                          << " ] with str length [ " << ss.str().length()
+                          << " ]\n");
+  assert(ss.str().length() != 0 &&
+         "Tiling Scheme file cannot have content length of 0");
+  free(aCopy);
+  //  try to parse file contents
+  parseTilingScheme(StringRef(ss.str()));
+  std::stringstream ts_ss;
+  ts_ss << ts;
+  // print out what we parsed
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                          << "the tile scheme we parsed from the json is...\n"
+                          << ts_ss.str() << "\n");
+  ts.setTotalLoopCount();
+  ts.buildFinalIndices();
+  return success();
 }
 
 // // from testTilingInterfaceTransformOps.cpp
