@@ -16,9 +16,9 @@
 
 Execute these instructions from inside EMILY-NOTES directory...
 ```
-../build-riscv/bin/clang tests/hello.c                                   # compile to executeable
-../build-riscv/bin/clang -O1 -emit-llvm tests/hello.c -c -o out/hello.bc # compile to LLVM bitcode
-../build-riscv/bin/llvm-dis < out/hello.bc | less                        # disassemble bitcode into LLVM assembly
-../build-riscv/bin/opt -disable-output out/hello.bc -passes=pistachio    # run pistachio pass over the LLVM bitcode
+../build-riscv/bin/clang tests/hello.c                                      # compile to executeable
+../build-riscv/bin/clang -O3 -S -emit-llvm tests/hello.c -c -o out/hello.ll # compile to human readable LLVM IR
+../build-riscv/bin/clang -O1 -emit-llvm tests/hello.c -c -o out/hello.bc    # compile to LLVM bitcode
+../build-riscv/bin/opt -disable-output out/hello.bc -passes=pistachio       # run pistachio pass over the LLVM bitcode
 ```
 
