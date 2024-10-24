@@ -146,6 +146,36 @@ void ZigzagTiling::runOnOperation() {
       return signalPassFailure();
     }
   }
+
+  // LET'S DO IT A SECOND TIME!!
+  targetOps.clear();
+  funcOp = getOperation(); // I know the operation implements a function op
+                           // interface
+  // pick out all the operations inside the current function
+  // which implement a TilingInterface, and save them in a list.
+  funcOp->walk([&](TilingInterface target) { targetOps.insert(target); });
+  context = &getContext();
+  if (targetOps.size() == 0) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE
+                  "] No Target Ops found inside this function after tiling!\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] Target Ops now has size "
+                            << targetOps.size() << "\n");
+    for (const auto &op : targetOps) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "[" DEBUG_TYPE "] This target Op is " << op << "\n");
+    }
+    // create an instance of our derived struct Pattern Rewriter.
+    TrivialPatternRewriter rewriter(context);
+    // rewriter.setInsertionPoint(funcOp); // I think I don't need this because
+    // insertion point is set inside tileAndFuseEach
+    // give our pattern rewriter and our hand-picked list of operations
+    // to the tiling function tileAndFuseEach
+    if (failed(ZigzagTiling::tileAndFuseEach(rewriter, targetOps, 88))) {
+      return signalPassFailure();
+    }
+  }
 }
 
 /// This collects the set of operations to tile + fuse starting from the given
@@ -183,8 +213,23 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
                << "[" DEBUG_TYPE "] inside MY tiling exploration func!\n");
   }
 
+  std::stringstream ts_ss;
+  ts_ss << ts;
+  // print out what we parsed
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                          << "the tile scheme we have currently is...\n"
+                          << ts_ss.str() << "\n");
+
   for (TilingInterface tilingInterfaceOp : payloadOps) {
 
+    // auto linalgOp = dyn_cast<LinalgOp>(tilingInterfaceOp);
+    // assert(linalgOp && "Tiling a linalg operation");
+    auto linalgOp = cast<LinalgOp>(*tilingInterfaceOp);
+    // linalgOp.getShapesToLoopsMap()
+
+    LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
+                            << "linalgOp's loop map is "
+                            << linalgOp.getShapesToLoopsMap() << "\n");
     // TODO: what does this block do? I need to find out.
     DominanceInfo dominanceInfo(tilingInterfaceOp);
     llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
@@ -225,33 +270,13 @@ ZigzagTiling::tileAndFuseEach(RewriterBase &rewriter,
       // tilingOptions.setInterchange(interchange); // TODO: interchange
       tilingOptions.setInterchange(interchange);
       break;
-    case 88:
-      tilingOptions.setTileSizes(ts2);
-      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
-      tilingOptions.setInterchange(interchange);
-      // tilingOptions.setTileSizeComputationFunction(
-      //     [&](OpBuilder &builder, auto &&...) {
-      //       SmallVector<OpFoldResult> result;
 
-      //       SmallVector<int64_t> l1Tiles(loweringConfig.getL1Tiles());
-      //       for (int64_t value : l1Tiles)
-      //         result.push_back(builder.getIndexAttr(value));
-
-      //       size_t numLoops =
-      //       tilingInterfaceOp.getLoopIteratorTypes().size(); while
-      //       (result.size() < numLoops)
-      //         result.push_back(builder.getIndexAttr(0));
-
-      //       return result;
-      //     });
-      // tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
-      // tilingOptions.setInterchange(interchange); // TODO: interchange
-      // tilingOptions.setInterchange(loweringConfig.getL1TilesInterchange());
-      break;
     default:
+      tileSizes = {{0}, {0}, {13}};
+      const auto &ts2 = ZigzagTiling::ZigZagTileSizeComputation(
+          b, tilingInterfaceOp, tileSizes);
       tilingOptions.setTileSizes(ts2);
-      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
-      tilingOptions.setInterchange(interchange);
+      tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
       break;
     }
 
@@ -441,11 +466,6 @@ LogicalResult ZigzagTiling::initializeOptions(StringRef options) {
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
                           << "the options are  [ " << options << " ]\n");
 
-  // std::stringstream filename;
-  // filename << options;
-  //&& options.consume_back(StringRef("})"))
-  // try to extract file name from the options
-  // if (options.consume_front(StringRef("tiling-scheme="))) {
   if (options.consume_front(StringRef("tiling-scheme="))) {
     LLVM_DEBUG(llvm::dbgs()
                << "[" DEBUG_TYPE "] "
@@ -467,42 +487,34 @@ LogicalResult ZigzagTiling::initializeOptions(StringRef options) {
                << " ] with length [ " << strlen(options.data()) << " ]\n");
   }
 
- // find_last_of(StringRef Chars, size_t From = npos) 
- // StringRef substr(size_t Start, size_t N = npos) 
- //StringRef filename = options.slice(0,options.find_last_of(StringRef("}")));
-//  LLVM_DEBUG(llvm::dbgs()
-//                << "[" DEBUG_TYPE "] "
-//                << "hoodle " << filename.data() << "\n");
+  char *aCopy = (char *)malloc(options.size() + 1);
+  for (size_t i = 0; i < options.size() + 1; i++) {
+    aCopy[i] = 0;
+  }
+  for (size_t i = 0; i < options.size(); i++) {
+    LLVM_DEBUG(llvm::dbgs()
+               << "[" DEBUG_TYPE "] ." << (int)options.data()[i] << ". ]\n");
+    aCopy[i] = options.data()[i];
+  }
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] aCopy is.[" << aCopy << "]\n");
 
-char * aCopy = (char*) malloc(options.size()+1);
-for(size_t i = 0; i < options.size()+1; i++){
-  aCopy[i] = 0;
+  /*
+  constexpr llvm::StringRef::StringRef 	( 	const char *  	data,
+                  size_t  	length
+          )
+  */
 
-}
-for(size_t i = 0; i < options.size(); i++){
-  LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE "] ."<< (int)options.data()[i]<<". ]\n");
-               aCopy[i] = options.data()[i];
+  // llvm::StringRef filename(options.data(), options.size()-3);// =
+  // options.substr(0,options.size()-1);
+  llvm::StringRef filename =
+      options.substr(0, 23); // = options.substr(0,options.size()-1);
 
-}
- LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE "] aCopy is.["<< aCopy<<"]\n");
-
-/*
-constexpr llvm::StringRef::StringRef 	( 	const char *  	data,
-		size_t  	length 
-	) 	
-*/
-
-// llvm::StringRef filename(options.data(), options.size()-3);// = options.substr(0,options.size()-1);
-llvm::StringRef filename= options.substr(0, 23);// = options.substr(0,options.size()-1);
-
- LLVM_DEBUG(llvm::dbgs()
-               << "[" DEBUG_TYPE "] new StringRef is ."<< filename.data()<<". ] with length "<< filename.size()<<"\n");
+  LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] new StringRef is ."
+                          << filename.data() << ". ] with length "
+                          << filename.size() << "\n");
 
   // try to read file
   std::ifstream ifs(aCopy);
-  
 
   if (!ifs.is_open()) {
     LLVM_DEBUG(llvm::dbgs()
@@ -541,219 +553,11 @@ llvm::StringRef filename= options.substr(0, 23);// = options.substr(0,options.si
   parseTilingScheme(StringRef(ss.str()));
   std::stringstream ts_ss;
   ts_ss << ts;
+  ts.setTotalLoopCount();
+  ts.buildFinalIndices();
   // print out what we parsed
   LLVM_DEBUG(llvm::dbgs() << "[" DEBUG_TYPE "] "
                           << "the tile scheme we parsed from the json is...\n"
                           << ts_ss.str() << "\n");
-  ts.setTotalLoopCount();
-  ts.buildFinalIndices();
   return success();
 }
-
-// // from testTilingInterfaceTransformOps.cpp
-// /// Apply a tile and fuse transformation to all payload ops and store both
-// the
-// /// tiled operation as well as the created tile loops.
-// template <typename Range>
-// static LogicalResult mlir::linalg::zigzag::applyTileAndFuseToAll(
-//     RewriterBase &rewriter, Operation *transformOp, Range &&payloadOps,
-//     unsigned numLoops, ArrayRef<OpFoldResult> tileSizes,
-//     ArrayRef<int64_t> interchange, bool useForall,
-//     transform::TransformResults &transformResults) {
-//   SmallVector<Operation *> tiledOps;
-//   SmallVector<SmallVector<Operation *>> loopOps(numLoops);
-
-//   // for (Operation *target : payloadOps) {
-//   //   auto tilingInterfaceOp = dyn_cast<TilingInterface>(target);
-//   //   if (!tilingInterfaceOp)
-//   //     return transformOp->emitError("only TilingInterface ops are
-//   //     supported");
-//   //   DominanceInfo dominanceInfo(tilingInterfaceOp);
-
-//   //   llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
-//   //       collectTiledAndFusedOps(tilingInterfaceOp);
-//   //   llvm::DenseSet<Operation *> yieldReplacementsFor;
-//   //   for (auto op : tiledAndFusedOps) {
-//   //     if (llvm::any_of(op->getUsers(), [&](Operation *user) {
-//   //           return dominanceInfo.properlyDominates(tilingInterfaceOp,
-//   user);
-//   //         })) {
-//   //       yieldReplacementsFor.insert(op);
-//   //     }
-//   //   }
-
-//   //   scf::SCFTilingOptions tilingOptions;
-//   //   tilingOptions.setTileSizes(tileSizes).setInterchange(interchange);
-//   //   if (useForall) {
-//   // tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
-//   //   }
-
-//   //   scf::SCFTileAndFuseOptions tileAndFuseOptions;
-//   //   tileAndFuseOptions.setTilingOptions(tilingOptions);
-
-//   //   scf::SCFTileAndFuseOptions::ControlFnTy controlFn =
-//   //       [&](tensor::ExtractSliceOp candidateSliceOp, OpResult
-//   //       originalProducer,
-//   //           bool isDestinationOperand) {
-//   //         Operation *owner = originalProducer.getOwner();
-//   //         bool yieldProducerReplacement =
-//   //         yieldReplacementsFor.contains(owner); return
-//   std::make_tuple(true,
-//   //         yieldProducerReplacement);
-//   //       };
-//   //   tileAndFuseOptions.setFusionControlFn(controlFn);
-
-//   //   rewriter.setInsertionPoint(target);
-//   //   FailureOr<scf::SCFTileAndFuseResult> tiledResults =
-//   //       scf::tileConsumerAndFuseProducersUsingSCF(rewriter,
-//   //       tilingInterfaceOp,
-//   //                                                 tileAndFuseOptions);
-//   //   if (failed(tiledResults))
-//   //     return failure();
-
-//   //   // Perform the replacement of tiled and fused values.
-//   //   SmallVector<Operation *> opsToReplace{target};
-//   //   llvm::append_range(opsToReplace, tiledResults->fusedProducers);
-//   //   for (Operation *toReplace : opsToReplace) {
-//   //     for (OpResult res : toReplace->getResults())
-//   //       if (auto replacement = tiledResults->replacements.lookup(res)) {
-//   //         Operation *replacementOp = replacement.getDefiningOp();
-//   //         rewriter.replaceUsesWithIf(res, replacement, [&](OpOperand &use)
-//   {
-//   //           Operation *user = use.getOwner();
-//   //           return dominanceInfo.properlyDominates(replacementOp, user) &&
-//   //                  user->getParentOp() == replacementOp->getParentOp();
-//   //         });
-//   //       }
-
-//   //     if (toReplace->use_empty()) {
-//   //       rewriter.eraseOp(toReplace);
-//   //     }
-//   //   }
-
-//   //   // Report back the relevant handles to the transform op.
-//   //   tiledOps.push_back(tiledResults->tiledAndFusedOps.front());
-//   //   assert(tiledResults->loops.size() == numLoops &&
-//   //          "Mismatched number of loops, tile and fuse transform should
-//   have "
-//   //          "failed");
-//   //   for (unsigned int i = 0; i < numLoops; ++i)
-//   //     loopOps[i].push_back(tiledResults->loops[i]);
-//   // }
-
-//   // transformResults.set(transformOp->getOpResult(0), tiledOps);
-//   // for (unsigned int i = 0; i < numLoops; ++i)
-//   //   transformResults.set(transformOp->getOpResult(i + 1), loopOps[i]);
-
-//   return success();
-// }
-
-// // from quidditch
-// /// Apply a tile and fuse transformation to all payload ops and store both
-// the
-// /// tiled operation as well as the created tile loops.
-// LogicalResult static mlir::linalg::zigzag::applyTileAndFuseToEachRoot(
-//     RewriterBase &rewriter, llvm::SmallDenseSet<TilingInterface> &payloadOps,
-//     int tilingLevel) {
-//   // for (TilingInterface tilingInterfaceOp : payloadOps) {
-
-//   //   DominanceInfo dominanceInfo(tilingInterfaceOp);
-
-//   //   llvm::SmallDenseSet<Operation *> tiledAndFusedOps =
-//   //       collectTiledAndFusedOps(tilingInterfaceOp, payloadOps);
-//   //   DenseSet<Operation *> yieldReplacementsFor;
-//   //   for (auto op : tiledAndFusedOps) {
-//   //     if (llvm::any_of(op->getUsers(), [&](Operation *user) {
-//   //           return dominanceInfo.properlyDominates(tilingInterfaceOp,
-//   user);
-//   //         })) {
-//   //       yieldReplacementsFor.insert(op);
-//   //     }
-//   //   }
-
-//   //     rewriter.setInsertionPoint(tilingInterfaceOp);
-//   // // I think lowering config only holds tile info...
-//   // //
-//   //
-//   https://github.com/opencompl/Quidditch/blob/15935bfe2cf454a929eed37f0450ed5c4c3036cf/codegen/compiler/src/Quidditch/Dialect/Snitch/IR/QuidditchSnitchAttrs.cpp#L7
-
-//   //     auto loweringConfig =
-//   //         getLoweringConfig<quidditch::Snitch::LoweringConfigAttr>(
-//   //             tilingInterfaceOp);
-//   //     scf::SCFTilingOptions tilingOptions;
-//   //     switch (tilingLevel) {
-//   //     case TilingLevel::Thread:
-//   // tilingOptions.setTileSizeComputationFunction(threadTileSizeComputation);
-//   // tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForallOp);
-//   //       break;
-//   //     case TilingLevel::L1:
-//   //       tilingOptions.setTileSizeComputationFunction(
-//   //           [&](OpBuilder &builder, auto &&...) {
-//   //             SmallVector<OpFoldResult> result;
-
-//   //             SmallVector<int64_t> l1Tiles(loweringConfig.getL1Tiles());
-//   //             for (int64_t value : l1Tiles)
-//   //               result.push_back(builder.getIndexAttr(value));
-
-//   //             size_t numLoops =
-//   //             tilingInterfaceOp.getLoopIteratorTypes().size(); while
-//   //             (result.size() < numLoops)
-//   //               result.push_back(builder.getIndexAttr(0));
-
-//   //             return result;
-//   //           });
-//   //       tilingOptions.setLoopType(scf::SCFTilingOptions::LoopType::ForOp);
-//   // tilingOptions.setInterchange(loweringConfig.getL1TilesInterchange());
-//   //       break;
-//   //     }
-
-//   //     scf::SCFTileAndFuseOptions tileAndFuseOptions;
-//   //     tileAndFuseOptions.setTilingOptions(tilingOptions);
-
-//   //     scf::SCFTileAndFuseOptions::ControlFnTy controlFn =
-//   //         [&](tensor::ExtractSliceOp candidateSliceOp, OpResult
-//   //         originalProducer,
-//   //             bool isDestinationOperand) {
-//   //           Operation *owner = originalProducer.getOwner();
-//   //           bool yieldProducerReplacement =
-//   //           yieldReplacementsFor.contains(owner); bool shouldFuse = false;
-//   if
-//   //           (auto tilingOwner = dyn_cast<TilingInterface>(owner)) {
-//   //             shouldFuse = !payloadOps.contains(tilingOwner);
-//   //           }
-//   //           // Do not fuse destination operands.
-//   //           shouldFuse &= !isDestinationOperand;
-//   //           return std::make_tuple(shouldFuse, yieldProducerReplacement);
-//   //         };
-//   //     tileAndFuseOptions.setFusionControlFn(controlFn);
-
-//   //     FailureOr<scf::SCFTileAndFuseResult> tiledResults =
-//   //         scf::tileConsumerAndFuseProducersUsingSCF(rewriter,
-//   //         tilingInterfaceOp,
-//   //                                                   tileAndFuseOptions);
-//   //     if (failed(tiledResults)) {
-//   //       return failure();
-//   //     }
-
-//   //     // Perform the replacement of tiled and fused values.
-//   //     SmallVector<Operation *> opsToReplace{tilingInterfaceOp};
-//   //     llvm::append_range(opsToReplace, tiledResults->fusedProducers);
-//   //     for (Operation *toReplace : opsToReplace) {
-//   //       for (OpResult res : toReplace->getResults())
-//   //         if (auto replacement = tiledResults->replacements.lookup(res)) {
-//   //           Operation *replacementOp = replacement.getDefiningOp();
-//   //           rewriter.replaceUsesWithIf(res, replacement, [&](OpOperand
-//   &use)
-//   //           {
-//   //             Operation *user = use.getOwner();
-//   //             return dominanceInfo.properlyDominates(replacementOp, user);
-//   //           });
-//   //         }
-
-//   //       if (toReplace->use_empty()) {
-//   //         rewriter.eraseOp(toReplace);
-//   //       }
-//   //     }
-//   //   }
-//   return success();
-// }

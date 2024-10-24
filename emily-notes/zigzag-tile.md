@@ -663,7 +663,7 @@ followed by
 
 ?
 
-## writing my own interchange function (oh god >.<)
+## writing my own interchange function ??
 
 Notes/ Reference:
 
@@ -692,4 +692,32 @@ bool mlir::getInnermostParallelLoops(Operation *rootOp,
 ```
 
 Let's put a pin in it until we have json parsing in...
+
+```
+// start with a linalg generic
+linalg.generic {...}
+
+// tile in the A, B and C dimensions (using tileConsumerAndFuseProducersUsingSCF)
+scf for a1 {
+	scf for b1 {
+		scf for c1 {
+			linalg.generic{...}			
+	
+		}
+	}
+}
+
+// tile the A dimension again to get
+scf for a1 {
+	scf for b1 {
+		scf for c1 {
+			scf for a2 {
+				linalg.generic{...}			
+			}	
+		}
+	}
+}
+
+// how to swap the b1 and a2 loop?
+```
 
