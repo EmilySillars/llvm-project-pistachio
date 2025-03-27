@@ -8,12 +8,7 @@
 - All the LLVM tools built will be located inside the `bin` directory of your build folder
 - You can invoke the clang compiler by calling it's corresponding executable file located inside the `bin` directory of your build folder.
 
-3. Suppose the name of your build folder is "build-riscv" and it's located in the top level of your cloned repo.
-
-4. Navigate to the `llvm-simple-c directory`:
-   ```
-   cd paam-examples/llvm-simple-c
-   ```
+3. Suppose your build folder is named `"build-riscv"` and it's located in the top level of your cloned repo. Suppose you have also copied the `paam-examples` directory to the top level of your cloned repo. Then you can successfully run the following commands...
 
 ## Compile and Run
 
