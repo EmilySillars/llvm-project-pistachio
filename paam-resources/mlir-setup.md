@@ -45,22 +45,20 @@
    cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS="mlir;clang;lld" \
    -DLLVM_BUILD_EXAMPLES=ON \
-   -DLLVM_TARGETS_TO_BUILD="Native;NVPTX;AMDGPU;RISCV" \
+   -DLLVM_TARGETS_TO_BUILD="Native;RISCV" \
    -DCMAKE_BUILD_TYPE=Release \
    -DLLVM_USE_LINKER=lld \
-   -DCMAKE_C_COMPILER=/usr/bin/clang \
-   -DCMAKE_CXX_COMPILER=/usr/bin/clang++ \
    -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DLLVM_ENABLE_RTTI=ON
    ```
-
+   
    ### Wait, what do all those cmake flags mean?
-
+   
    - Full the list of definitions [here](https://llvm.org/docs/CMake.html#frequently-used-llvm-related-variables)
-   - Note that `-DLLVM_TARGETS_TO_BUILD` specifies which hardware targets want to compile for. We added riscv as a target by appending to the end of the string "`;RISCV`"
+   - Note that `-DLLVM_TARGETS_TO_BUILD` specifies which hardware targets we want to compile for. We added riscv as a target by appending to the end of the string "`;RISCV`"
+     The full list of targets as of March 2023, is: `AArch64;AMDGPU;ARM;AVR;BPF;Hexagon;Lanai;LoongArch;Mips;MSP430;NVPTX;PowerPC;RISCV;Sparc;SystemZ;VE;WebAssembly;X86;XCore`
    - Note that `-DLLVM_ENABLE_PROJECTS` specifies which LLVM projects you want to build. You want to build the clang project (LLVM's compiler), and LLVM's linker lld. MLIR is an example of another project within LLVM. To build the MLIR project as well, we prepend to the string "`mlir;`".
    - `-DCMAKE_BUILD_TYPE=Release` we recommend release because it will take less time to build.
-
+   
 2. Configure your build using the following options:
 
 3. Build with:
