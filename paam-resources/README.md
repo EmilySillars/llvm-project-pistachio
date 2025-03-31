@@ -13,7 +13,7 @@ Resources for PROGRAMACIÓN AVANZADA DE ARQUITECTURAS MULTINÚCLEO
 
 3. how to add a custom pass to LLVM
    - [official tutorial](https://llvm.org/docs/WritingAnLLVMNewPMPass.html)
-   - PAAM-specific notes (to be added Monday March 31st)
+   - PAAM-specific notes (to be added ~~Monday March 31st~~; delayed, apologies!)
 
 Useful Links:
 
@@ -35,11 +35,11 @@ Useful Links:
      - Lower to LLVM dialect MLIR
      - `mlir-translate my-code-in-llvm-dialect.mlir > myCode.ll` 
      - follow [compilation steps for simple-c.c](../paam-examples/llvm-simple-c/README.md)
-   - call MLIR from C, and C from MLIR (to be added Monday March 31st)
+   - call MLIR from C, and C from MLIR (to be added ~~Monday March 31st~~; delayed, apologies!)
    
 3. how to add a custom pass to MLIR
    - [Read this official page on pass infrastructure](https://mlir.llvm.org/docs/PassManagement/) (at least the Operation Pass and Analysis Management sections), then refer to PAAM-specific notes
-   - PAAM-specific notes (to be added Monday March 31st)
+   - PAAM-specific notes (to be added ~~Monday March 31st~~; delayed, apologies!)
 
 Useful Links:
 
