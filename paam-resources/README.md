@@ -35,7 +35,7 @@ Useful Links:
      - Lower to LLVM dialect MLIR
      - `mlir-translate my-code-in-llvm-dialect.mlir > myCode.ll` 
      - follow [compilation steps for simple-c.c](../paam-examples/llvm-simple-c/README.md)
-   - call MLIR from C, and C from MLIR (to be added ~~Monday March 31st~~; delayed, apologies!)
+   - [call MLIR from C, and C from MLIR](../paam-examples/mlir-call-c/README.md) :pig:
    
 3. how to add a custom pass to MLIR
    - [Read this official page on pass infrastructure](https://mlir.llvm.org/docs/PassManagement/) (at least the Operation Pass and Analysis Management sections), then refer to PAAM-specific notes

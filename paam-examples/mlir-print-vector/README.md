@@ -113,3 +113,9 @@ Unranked Memref base@ = 0x59ea00de0540 rank = 3 offset = 0 sizes = [1, 4, 5] str
 ### Tips
 
 - Remember you can always use `mlir-cpu-runner --help`, and then `grep` for keywords related to what you are confused about.
+
+## 3. What if I don't want to use the JIT, but I DO want to print out my tensors?
+
+- I have never done this before, but I think you can link those .so files while building your executable. This post may help: https://discourse.llvm.org/t/print-in-mlir/1701/13
+- Another option is to lower tensors to memrefs with a bufferization pass, and then print the memrefs: see [here](../mlir-call-c/README.md)
+
