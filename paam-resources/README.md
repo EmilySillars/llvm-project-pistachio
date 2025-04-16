@@ -39,7 +39,7 @@ Useful Links:
    
 3. how to add a custom pass to MLIR
    - [Read this official page on pass infrastructure](https://mlir.llvm.org/docs/PassManagement/) (at least the Operation Pass and Analysis Management sections), then refer to PAAM-specific notes
-   - PAAM-specific notes (to be added ~~Monday March 31st~~; delayed, apologies!)
+   - [PAAM-specific notes](../paam-examples/mlir-custom-pass/README.md) :octopus:
 
 Useful Links:
 
