@@ -19,7 +19,7 @@ Adding a custom compiler pass to MLIR involves two directories, `include` and `l
 
 1. **Pick** the MLIR dialect level at which your pass will run.
 2. **Find** an existing MLIR pass in that dialect to use as reference.
-3. **Copy** changes needed to register/implement this reference pass in the corresponding `Passes.h` , `Passes.td` , and `cpp` file, replacing the name of the reference pass with your own custom pass name wherever necessary.
+3. **Copy** changes needed to register/implement this reference pass in the corresponding `Passes.h` , `Passes.td` , and `cpp` file, replacing the name of the reference pass with your own custom pass name.
 4. **Hack** the copied implementation `cpp` file to perform the transformation and/or analysis you desire. 
 
 ## Example Avocado Pass: count functions in MLIR source file
@@ -206,7 +206,7 @@ We choose to use `--convert-elementwise-to-linalg` as our reference pass, which 
      return std::make_unique<AvocadoPass>();
    }
    ```
-
+    *Notice that `#define GEN_PASS_DEF_CONVERTELEMENTWISETOLINALG` gets replaced with `#define GEN_PASS_DEF_AVOCADO`.*
 3. Add implementation of custom pass
    ```
    namespace {
@@ -232,25 +232,56 @@ We choose to use `--convert-elementwise-to-linalg` as our reference pass, which 
 #### 6. Invoke Custom Avocado Pass
 
 - To invoke the pass on example input file `matmul.mlir`, do
-```
-mlir-opt -pass-pipeline='any(func.func(avocado))'--mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul.mlir
-```
-- Sometimes you only want to see your debug statements, and not the MLIR. In this case you can redirect stdout:
-```
-mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul104x104.mlir 1>/dev/null
+  ```
+  mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul.mlir
+  ```
+  *Note: we use `--mlir-disable-threading` to prevent race conditions during calls to `llvm::errs()`.*
 
-```
-Expected Outut for `sh run-thru-avocado.sh matmul104x104.mlir`:
-``` 
-["matmul104x104"]
-["main"]
-["printMemrefI32"]
-===-------------------------------------------------------------------------===
-                         ... Pass statistics report ...
-===-------------------------------------------------------------------------===
-  Avocado
-    (S) 3 func-count - how many functions are in the source file?
-```
+  Expected Output:
+  ```
+  ["print_memref_32_bit"]
+  ["matmulAndPrint"]
+  ===-------------------------------------------------------------------------===
+                          ... Pass statistics report ...
+  ===-------------------------------------------------------------------------===
+    Avocado
+      (S) 2 func-count - how many functions are in the source file?
+
+  module {
+    func.func private @print_memref_32_bit(memref<2x2xi32, strided<[2, 1], offset: ?>>) attributes {llvm.emit_c_interface}
+    func.func @matmulAndPrint(%arg0: memref<2x2xi32, strided<[2, 1], offset: ?>>, %arg1: memref<2x2xi32, strided<[2, 1], offset: ?>>, %arg2: memref<2x2xi32, strided<[2, 1], offset: ?>>) attributes {llvm.emit_c_interface} {
+      linalg.matmul ins(%arg0, %arg1 : memref<2x2xi32, strided<[2, 1], offset: ?>>, memref<2x2xi32, strided<[2, 1], offset: ?>>) outs(%arg2 : memref<2x2xi32, strided<[2, 1], offset: ?>>)
+      call @print_memref_32_bit(%arg2) : (memref<2x2xi32, strided<[2, 1], offset: ?>>) -> ()
+      return
+    }
+  }
+  ```
+  Sometimes you only want to see your debug statements, and not the MLIR. In this case you can redirect stdout with `1>/dev/null`:
+  ```
+  mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul.mlir 1>/dev/null
+  ```
+  Expected Output:
+  ```
+  ["print_memref_32_bit"]
+  ["matmulAndPrint"]
+  ===-------------------------------------------------------------------------===
+                          ... Pass statistics report ...
+  ===-------------------------------------------------------------------------===
+    Avocado
+      (S) 2 func-count - how many functions are in the source file?
+    
+  ```
+- Example using shell script: `sh run-thru-avocado.sh matmul104x104.mlir`:
+  ``` 
+  ["matmul104x104"]
+  ["main"]
+  ["printMemrefI32"]
+  ===-------------------------------------------------------------------------===
+                          ... Pass statistics report ...
+  ===-------------------------------------------------------------------------===
+    Avocado
+      (S) 3 func-count - how many functions are in the source file?
+  ```
 
 
 
