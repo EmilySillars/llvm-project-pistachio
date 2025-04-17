@@ -231,13 +231,13 @@ We choose to use `--convert-elementwise-to-linalg` as our reference pass, which 
 
 #### 6. Invoke Custom Avocado Pass
 
-- To invoke the pass on input file `matmul.mlir`, do
+- To invoke the pass on example input file `matmul.mlir`, do
 ```
 mlir-opt -pass-pipeline='any(func.func(avocado))'--mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul.mlir
 ```
-- Sometimes you only want to see your debug statements, and not the MLIR. In this case you can redirect stdout/sterr like so:
+- Sometimes you only want to see your debug statements, and not the MLIR. In this case you can redirect stdout:
 ```
-mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list <inputFileName>.mlir 2> 1>/dev/null
+mlir-opt -pass-pipeline='any(func.func(avocado))' --mlir-disable-threading -mlir-pass-statistics -mlir-pass-statistics-display=list matmul104x104.mlir 1>/dev/null
 
 ```
 Expected Outut for `sh run-thru-avocado.sh matmul104x104.mlir`:
